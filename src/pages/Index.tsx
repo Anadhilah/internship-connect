@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Link } from "react-router-dom";
 import { 
   Briefcase, 
   FileText, 
@@ -25,7 +26,9 @@ const Index = () => {
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm">Login</Button>
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/admin/dashboard">Admin</Link>
+              </Button>
               <Button size="sm" className="bg-gradient-primary hover:opacity-90 transition-opacity">
                 Get Started
               </Button>
@@ -49,13 +52,17 @@ const Index = () => {
               Connect with verified organizations, auto-generate your resume, and track your applications all in one place.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="bg-primary hover:bg-primary-hover text-white shadow-hover transition-all">
-                <Briefcase className="mr-2 h-5 w-5" />
-                Find Internships
+              <Button size="lg" className="bg-primary hover:bg-primary-hover text-white shadow-hover transition-all" asChild>
+                <Link to="/applicant/dashboard">
+                  <Briefcase className="mr-2 h-5 w-5" />
+                  Find Internships
+                </Link>
               </Button>
-              <Button size="lg" variant="outline" className="border-2 hover:bg-accent">
-                <Users className="mr-2 h-5 w-5" />
-                Post Opportunities
+              <Button size="lg" variant="outline" className="border-2 hover:bg-accent" asChild>
+                <Link to="/organization/dashboard">
+                  <Users className="mr-2 h-5 w-5" />
+                  Post Opportunities
+                </Link>
               </Button>
             </div>
             <div className="mt-12 flex flex-wrap justify-center gap-8 text-sm text-muted-foreground">
@@ -222,11 +229,11 @@ const Index = () => {
                 Join thousands of students and organizations already connected on InternConnect
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Button size="lg" className="bg-primary hover:bg-primary-hover text-white">
-                  Get Started as Student
+                <Button size="lg" className="bg-primary hover:bg-primary-hover text-white" asChild>
+                  <Link to="/applicant/dashboard">Get Started as Student</Link>
                 </Button>
-                <Button size="lg" variant="outline" className="border-2">
-                  Register as Organization
+                <Button size="lg" variant="outline" className="border-2" asChild>
+                  <Link to="/organization/dashboard">Register as Organization</Link>
                 </Button>
               </div>
             </CardContent>
