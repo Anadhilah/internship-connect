@@ -8,6 +8,7 @@ import ApplicantDashboard from "./pages/ApplicantDashboard";
 import OrganizationDashboard from "./pages/OrganizationDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import ResumeManagement from "./pages/ResumeManagement";
+import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,7 +23,9 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/applicant/dashboard" element={<ApplicantDashboard />} />
           <Route path="/applicant/resume" element={<ResumeManagement />} />
+          <Route path="/applicant/messages" element={<Messages userRole="applicant" />} />
           <Route path="/organization/dashboard" element={<OrganizationDashboard />} />
+          <Route path="/organization/messages" element={<Messages userRole="organization" />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
