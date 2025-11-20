@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import ApplicantDashboard from "./pages/ApplicantDashboard";
 import OrganizationDashboard from "./pages/OrganizationDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import OrganizationApprovals from "./pages/OrganizationApprovals";
 import ResumeManagement from "./pages/ResumeManagement";
 import Messages from "./pages/Messages";
 import ApplicationTracking from "./pages/ApplicationTracking";
@@ -29,6 +30,7 @@ const App = () => (
           <Route path="/organization/dashboard" element={<OrganizationDashboard />} />
           <Route path="/organization/messages" element={<Messages userRole="organization" />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/approvals" element={<OrganizationApprovals />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
