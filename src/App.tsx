@@ -12,6 +12,7 @@ import PostInternship from "./pages/PostInternship";
 import ResumeManagement from "./pages/ResumeManagement";
 import Messages from "./pages/Messages";
 import ApplicationTracking from "./pages/ApplicationTracking";
+import ManageApplicants from "./pages/ManageApplicants";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
           <Route path="/applicant/messages" element={<Messages userRole="applicant" />} />
           <Route path="/organization/dashboard" element={<OrganizationDashboard />} />
           <Route path="/organization/post" element={<PostInternship />} />
+          <Route path="/organization/applicants" element={<ManageApplicants />} />
           <Route path="/organization/messages" element={<Messages userRole="organization" />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/approvals" element={<OrganizationApprovals />} />
