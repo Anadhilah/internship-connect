@@ -1,3 +1,6 @@
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "react-router-dom";
@@ -13,6 +16,40 @@ import {
 } from "lucide-react";
 
 const Index = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        checkUserRoleAndRedirect(session.user.id);
+      }
+    });
+  }, []);
+
+  const checkUserRoleAndRedirect = async (userId: string) => {
+    try {
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .single();
+
+      if (!roleData) {
+        navigate('/onboarding/role-selection');
+        return;
+      }
+
+      if (roleData.role === 'organization') {
+        navigate('/organization/dashboard');
+      } else if (roleData.role === 'intern') {
+        navigate('/applicant/dashboard');
+      } else if (roleData.role === 'admin') {
+        navigate('/admin/dashboard');
+      }
+    } catch (error) {
+      console.error('Error checking user role:', error);
+    }
+  };
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
@@ -26,11 +63,8 @@ const Index = () => {
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/admin/dashboard">Admin</Link>
-              </Button>
-              <Button size="sm" className="bg-gradient-primary hover:opacity-90 transition-opacity">
-                Get Started
+              <Button size="sm" className="bg-gradient-primary hover:opacity-90 transition-opacity" asChild>
+                <Link to="/auth">Get Started</Link>
               </Button>
             </div>
           </div>
@@ -53,15 +87,9 @@ const Index = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" className="bg-primary hover:bg-primary-hover text-white shadow-hover transition-all" asChild>
-                <Link to="/applicant/dashboard">
+                <Link to="/auth">
                   <Briefcase className="mr-2 h-5 w-5" />
-                  Find Internships
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" className="border-2 hover:bg-accent" asChild>
-                <Link to="/organization/dashboard">
-                  <Users className="mr-2 h-5 w-5" />
-                  Post Opportunities
+                  Get Started
                 </Link>
               </Button>
             </div>
@@ -230,10 +258,7 @@ const Index = () => {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button size="lg" className="bg-primary hover:bg-primary-hover text-white" asChild>
-                  <Link to="/applicant/dashboard">Get Started as Student</Link>
-                </Button>
-                <Button size="lg" variant="outline" className="border-2" asChild>
-                  <Link to="/organization/dashboard">Register as Organization</Link>
+                  <Link to="/auth">Get Started Now</Link>
                 </Button>
               </div>
             </CardContent>

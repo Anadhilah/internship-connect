@@ -14,16 +14,132 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      intern_profiles: {
+        Row: {
+          availability: string | null
+          created_at: string
+          education_level: string | null
+          experience_level: string | null
+          field_of_study: string | null
+          full_name: string
+          id: string
+          interests: string[] | null
+          portfolio_url: string | null
+          resume_url: string | null
+          skills: string[] | null
+          university: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          availability?: string | null
+          created_at?: string
+          education_level?: string | null
+          experience_level?: string | null
+          field_of_study?: string | null
+          full_name: string
+          id?: string
+          interests?: string[] | null
+          portfolio_url?: string | null
+          resume_url?: string | null
+          skills?: string[] | null
+          university?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          availability?: string | null
+          created_at?: string
+          education_level?: string | null
+          experience_level?: string | null
+          field_of_study?: string | null
+          full_name?: string
+          id?: string
+          interests?: string[] | null
+          portfolio_url?: string | null
+          resume_url?: string | null
+          skills?: string[] | null
+          university?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      organization_profiles: {
+        Row: {
+          company_name: string
+          company_size: string | null
+          created_at: string
+          description: string | null
+          id: string
+          industry: string | null
+          location: string | null
+          updated_at: string
+          user_id: string
+          website: string | null
+        }
+        Insert: {
+          company_name: string
+          company_size?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          industry?: string | null
+          location?: string | null
+          updated_at?: string
+          user_id: string
+          website?: string | null
+        }
+        Update: {
+          company_name?: string
+          company_size?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          industry?: string | null
+          location?: string | null
+          updated_at?: string
+          user_id?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "organization" | "intern"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +266,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "organization", "intern"],
+    },
   },
 } as const
