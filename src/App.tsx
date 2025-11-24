@@ -4,6 +4,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
+import Auth from "./pages/Auth";
+import RoleSelection from "./pages/RoleSelection";
+import OrganizationOnboarding from "./pages/OrganizationOnboarding";
+import InternOnboarding from "./pages/InternOnboarding";
 import ApplicantDashboard from "./pages/ApplicantDashboard";
 import OrganizationDashboard from "./pages/OrganizationDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -25,6 +29,10 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/onboarding/role-selection" element={<RoleSelection />} />
+          <Route path="/onboarding/organization" element={<OrganizationOnboarding />} />
+          <Route path="/onboarding/intern" element={<InternOnboarding />} />
           <Route path="/applicant/dashboard" element={<ApplicantDashboard />} />
           <Route path="/applicant/resume" element={<ResumeManagement />} />
           <Route path="/applicant/applications" element={<ApplicationTracking />} />
