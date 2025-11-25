@@ -53,6 +53,14 @@ export default function Auth() {
         return;
       }
 
+      // Admins should use the admin portal
+      if (roleData.role === 'admin') {
+        await supabase.auth.signOut();
+        toast.error('Please use the Admin Portal to log in');
+        navigate('/admin/login');
+        return;
+      }
+
       // Check if profile is complete
       if (roleData.role === 'organization') {
         const { data: profile } = await supabase
@@ -78,8 +86,6 @@ export default function Auth() {
         } else {
           navigate('/applicant/dashboard');
         }
-      } else if (roleData.role === 'admin') {
-        navigate('/admin/dashboard');
       }
     } catch (error) {
       console.error('Error checking user role:', error);
@@ -259,6 +265,19 @@ export default function Auth() {
               </form>
             </TabsContent>
           </Tabs>
+          
+          <div className="mt-6 text-center">
+            <p className="text-xs text-muted-foreground">
+              Administrator?{" "}
+              <Button 
+                variant="link" 
+                className="p-0 h-auto font-normal text-xs"
+                onClick={() => navigate('/admin/login')}
+              >
+                Use Admin Portal
+              </Button>
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
