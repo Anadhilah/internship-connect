@@ -4,8 +4,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Briefcase, FileText, MessageSquare, TrendingUp, Clock, CheckCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const ApplicantDashboard = () => {
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success("Logged out successfully");
+    navigate("/auth");
+  };
+
   // Mock data - will be replaced with real data
   const stats = [
     { label: "Applications Sent", value: "12", icon: Briefcase, color: "text-primary" },
@@ -34,7 +45,7 @@ const ApplicantDashboard = () => {
                   <p className="text-sm text-muted-foreground">Welcome back, Student!</p>
                 </div>
               </div>
-              <Button variant="outline" size="sm">Logout</Button>
+              <Button variant="outline" size="sm" onClick={handleLogout}>Logout</Button>
             </div>
           </header>
 
@@ -68,15 +79,27 @@ const ApplicantDashboard = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button className="w-full justify-start" variant="outline">
+                  <Button 
+                    className="w-full justify-start" 
+                    variant="outline"
+                    onClick={() => navigate("/applicant/dashboard")}
+                  >
                     <Briefcase className="mr-2 h-4 w-4" />
                     Browse Internships
                   </Button>
-                  <Button className="w-full justify-start" variant="outline">
+                  <Button 
+                    className="w-full justify-start" 
+                    variant="outline"
+                    onClick={() => navigate("/applicant/resume")}
+                  >
                     <FileText className="mr-2 h-4 w-4" />
                     Update Resume
                   </Button>
-                  <Button className="w-full justify-start" variant="outline">
+                  <Button 
+                    className="w-full justify-start" 
+                    variant="outline"
+                    onClick={() => navigate("/applicant/messages")}
+                  >
                     <MessageSquare className="mr-2 h-4 w-4" />
                     Check Messages
                   </Button>
@@ -91,7 +114,7 @@ const ApplicantDashboard = () => {
                       <Briefcase className="h-5 w-5 text-primary" />
                       Recent Applications
                     </span>
-                    <Button variant="ghost" size="sm">View All</Button>
+                    <Button variant="ghost" size="sm" onClick={() => navigate("/applicant/applications")}>View All</Button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -121,7 +144,7 @@ const ApplicantDashboard = () => {
                     <h3 className="text-lg font-heading font-semibold mb-1">Complete Your Profile</h3>
                     <p className="text-sm text-muted-foreground">Add more details to increase your chances of getting hired</p>
                   </div>
-                  <Button>Complete Profile</Button>
+                  <Button onClick={() => toast.info("Profile editing coming soon!")}>Complete Profile</Button>
                 </div>
               </CardContent>
             </Card>

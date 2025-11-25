@@ -10,6 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Briefcase, Plus, X } from "lucide-react";
 import { z } from "zod";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const internshipSchema = z.object({
   title: z.string().trim().min(5, "Title must be at least 5 characters").max(100, "Title must be less than 100 characters"),
@@ -29,8 +32,15 @@ const internshipSchema = z.object({
 });
 
 const PostInternship = () => {
-  const { toast } = useToast();
+  const { toast: toastHook } = useToast();
+  const navigate = useNavigate();
   const [skills, setSkills] = useState<string[]>([]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success("Logged out successfully");
+    navigate("/auth");
+  };
   const [currentSkill, setCurrentSkill] = useState("");
   const [formData, setFormData] = useState({
     title: "",
@@ -53,7 +63,7 @@ const PostInternship = () => {
     const trimmedSkill = currentSkill.trim();
     if (trimmedSkill && !skills.includes(trimmedSkill)) {
       if (skills.length >= 10) {
-        toast({
+        toastHook({
           title: "Maximum skills reached",
           description: "You can add up to 10 skills only",
           variant: "destructive",
@@ -89,7 +99,7 @@ const PostInternship = () => {
 
       console.log("Form submitted:", validatedData);
       
-      toast({
+      toastHook({
         title: "Success!",
         description: "Internship position posted successfully",
       });
@@ -121,7 +131,7 @@ const PostInternship = () => {
           }
         });
         setErrors(newErrors);
-        toast({
+        toastHook({
           title: "Validation Error",
           description: "Please check all required fields",
           variant: "destructive",
@@ -144,7 +154,7 @@ const PostInternship = () => {
                   <p className="text-sm text-muted-foreground">Create a new internship position</p>
                 </div>
               </div>
-              <Button variant="outline" size="sm">Logout</Button>
+              <Button variant="outline" size="sm" onClick={handleLogout}>Logout</Button>
             </div>
           </header>
 

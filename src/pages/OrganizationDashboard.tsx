@@ -4,8 +4,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Briefcase, Users, Eye, CheckCircle, Clock, XCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const OrganizationDashboard = () => {
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success("Logged out successfully");
+    navigate("/auth");
+  };
+
   // Mock data
   const stats = [
     { label: "Active Postings", value: "8", icon: Briefcase, color: "text-primary" },
@@ -41,7 +52,7 @@ const OrganizationDashboard = () => {
                   <p className="text-sm text-muted-foreground">Tech Corp Inc.</p>
                 </div>
               </div>
-              <Button variant="outline" size="sm">Logout</Button>
+              <Button variant="outline" size="sm" onClick={handleLogout}>Logout</Button>
             </div>
           </header>
 
@@ -75,15 +86,26 @@ const OrganizationDashboard = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Button className="w-full justify-start bg-primary hover:bg-primary-hover text-white">
+                  <Button 
+                    className="w-full justify-start bg-primary hover:bg-primary-hover text-white"
+                    onClick={() => navigate("/organization/post")}
+                  >
                     <Briefcase className="mr-2 h-4 w-4" />
                     Post New Internship
                   </Button>
-                  <Button className="w-full justify-start" variant="outline">
+                  <Button 
+                    className="w-full justify-start" 
+                    variant="outline"
+                    onClick={() => navigate("/organization/applicants")}
+                  >
                     <Users className="mr-2 h-4 w-4" />
                     View All Applicants
                   </Button>
-                  <Button className="w-full justify-start" variant="outline">
+                  <Button 
+                    className="w-full justify-start" 
+                    variant="outline"
+                    onClick={() => navigate("/organization/post")}
+                  >
                     <Eye className="mr-2 h-4 w-4" />
                     Manage Postings
                   </Button>
@@ -98,7 +120,7 @@ const OrganizationDashboard = () => {
                       <Briefcase className="h-5 w-5 text-primary" />
                       Active Postings
                     </span>
-                    <Button variant="ghost" size="sm">View All</Button>
+                    <Button variant="ghost" size="sm" onClick={() => navigate("/organization/post")}>View All</Button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -131,7 +153,7 @@ const OrganizationDashboard = () => {
                     <Users className="h-5 w-5 text-primary" />
                     Recent Applicants
                   </span>
-                  <Button variant="ghost" size="sm">View All</Button>
+                  <Button variant="ghost" size="sm" onClick={() => navigate("/organization/applicants")}>View All</Button>
                 </CardTitle>
               </CardHeader>
               <CardContent>
