@@ -188,7 +188,17 @@ const AdminLogin = () => {
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-2">
+            <p className="text-sm text-muted-foreground">
+              First time setup?{" "}
+              <Button 
+                variant="link" 
+                className="p-0 h-auto font-normal"
+                onClick={() => navigate('/admin/setup')}
+              >
+                Create admin account
+              </Button>
+            </p>
             <p className="text-sm text-muted-foreground">
               Not an admin?{" "}
               <Button 
