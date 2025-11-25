@@ -4,8 +4,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Users, Briefcase, AlertCircle, CheckCircle, XCircle, Clock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast.success("Logged out successfully");
+    navigate("/auth");
+  };
+
   // Mock data
   const stats = [
     { label: "Total Organizations", value: "156", icon: Building2, color: "text-primary" },
@@ -48,7 +59,7 @@ const AdminDashboard = () => {
                   <p className="text-sm text-muted-foreground">Platform Overview & Management</p>
                 </div>
               </div>
-              <Button variant="outline" size="sm">Logout</Button>
+              <Button variant="outline" size="sm" onClick={handleLogout}>Logout</Button>
             </div>
           </header>
 
@@ -104,7 +115,7 @@ const AdminDashboard = () => {
                       <AlertCircle className="h-5 w-5 text-primary" />
                       Recent Activity
                     </span>
-                    <Button variant="ghost" size="sm">View All</Button>
+                    <Button variant="ghost" size="sm" onClick={() => toast.info("Full activity log coming soon!")}>View All</Button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -160,14 +171,26 @@ const AdminDashboard = () => {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => navigate("/admin/approvals")}
+                        >
                           View Details
                         </Button>
-                        <Button size="sm" className="bg-secondary hover:bg-secondary-hover text-white">
+                        <Button 
+                          size="sm" 
+                          className="bg-secondary hover:bg-secondary-hover text-white"
+                          onClick={() => toast.success("Organization approved!")}
+                        >
                           <CheckCircle className="mr-1 h-4 w-4" />
                           Approve
                         </Button>
-                        <Button size="sm" variant="destructive">
+                        <Button 
+                          size="sm" 
+                          variant="destructive"
+                          onClick={() => toast.error("Organization rejected")}
+                        >
                           <XCircle className="mr-1 h-4 w-4" />
                           Reject
                         </Button>
@@ -187,7 +210,11 @@ const AdminDashboard = () => {
                     <h3 className="text-lg font-heading font-semibold mb-1">Action Required</h3>
                     <p className="text-sm text-muted-foreground">You have {pendingOrganizations.length} organizations waiting for approval. Review them to keep the platform active.</p>
                   </div>
-                  <Button variant="destructive" className="ml-auto">
+                  <Button 
+                    variant="destructive" 
+                    className="ml-auto"
+                    onClick={() => navigate("/admin/approvals")}
+                  >
                     Review Now
                   </Button>
                 </div>
