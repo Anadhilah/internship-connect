@@ -379,9 +379,20 @@ const Index = () => {
               <Briefcase className="h-6 w-6 text-primary" />
               <span className="text-xl font-heading font-bold">InternConnect</span>
             </div>
-            <p className="text-sm text-muted-foreground">
-              © 2024 InternConnect. Connecting talent with opportunity.
-            </p>
+            <div className="flex items-center gap-4">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-muted-foreground hover:text-destructive"
+                onClick={() => navigate('/admin/login')}
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                Admin Portal
+              </Button>
+              <p className="text-sm text-muted-foreground">
+                © 2024 InternConnect. Connecting talent with opportunity.
+              </p>
+            </div>
           </div>
         </div>
       </footer>
