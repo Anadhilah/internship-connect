@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import RoleSelection from "./pages/RoleSelection";
@@ -30,19 +31,71 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/onboarding/role-selection" element={<RoleSelection />} />
-          <Route path="/onboarding/organization" element={<OrganizationOnboarding />} />
-          <Route path="/onboarding/intern" element={<InternOnboarding />} />
-          <Route path="/applicant/dashboard" element={<ApplicantDashboard />} />
-          <Route path="/applicant/resume" element={<ResumeManagement />} />
-          <Route path="/applicant/applications" element={<ApplicationTracking />} />
-          <Route path="/applicant/messages" element={<Messages userRole="applicant" />} />
-          <Route path="/organization/dashboard" element={<OrganizationDashboard />} />
-          <Route path="/organization/post" element={<PostInternship />} />
-          <Route path="/organization/applicants" element={<ManageApplicants />} />
-          <Route path="/organization/messages" element={<Messages userRole="organization" />} />
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/approvals" element={<OrganizationApprovals />} />
+          <Route path="/onboarding/role-selection" element={
+            <ProtectedRoute>
+              <RoleSelection />
+            </ProtectedRoute>
+          } />
+          <Route path="/onboarding/organization" element={
+            <ProtectedRoute requiredRole="organization">
+              <OrganizationOnboarding />
+            </ProtectedRoute>
+          } />
+          <Route path="/onboarding/intern" element={
+            <ProtectedRoute requiredRole="intern">
+              <InternOnboarding />
+            </ProtectedRoute>
+          } />
+          <Route path="/applicant/dashboard" element={
+            <ProtectedRoute requiredRole="intern">
+              <ApplicantDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/applicant/resume" element={
+            <ProtectedRoute requiredRole="intern">
+              <ResumeManagement />
+            </ProtectedRoute>
+          } />
+          <Route path="/applicant/applications" element={
+            <ProtectedRoute requiredRole="intern">
+              <ApplicationTracking />
+            </ProtectedRoute>
+          } />
+          <Route path="/applicant/messages" element={
+            <ProtectedRoute requiredRole="intern">
+              <Messages userRole="applicant" />
+            </ProtectedRoute>
+          } />
+          <Route path="/organization/dashboard" element={
+            <ProtectedRoute requiredRole="organization">
+              <OrganizationDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/organization/post" element={
+            <ProtectedRoute requiredRole="organization">
+              <PostInternship />
+            </ProtectedRoute>
+          } />
+          <Route path="/organization/applicants" element={
+            <ProtectedRoute requiredRole="organization">
+              <ManageApplicants />
+            </ProtectedRoute>
+          } />
+          <Route path="/organization/messages" element={
+            <ProtectedRoute requiredRole="organization">
+              <Messages userRole="organization" />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/dashboard" element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/approvals" element={
+            <ProtectedRoute requiredRole="admin">
+              <OrganizationApprovals />
+            </ProtectedRoute>
+          } />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
