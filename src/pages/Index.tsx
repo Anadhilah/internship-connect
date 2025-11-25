@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,43 +12,117 @@ import {
   CheckCircle, 
   Users,
   Shield,
-  Zap
+  Zap,
+  LogOut,
+  User as UserIcon
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { User, Session } from "@supabase/supabase-js";
 
 const Index = () => {
   const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          setTimeout(() => {
+            fetchUserData(session.user.id);
+          }, 0);
+        } else {
+          setUserName(null);
+          setUserRole(null);
+        }
+      }
+    );
+
+    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        checkUserRoleAndRedirect(session.user.id);
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        fetchUserData(session.user.id);
       }
     });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const checkUserRoleAndRedirect = async (userId: string) => {
+  const fetchUserData = async (userId: string) => {
     try {
+      // Fetch role
       const { data: roleData } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
         .single();
 
-      if (!roleData) {
-        navigate('/onboarding/role-selection');
-        return;
-      }
+      if (roleData) {
+        setUserRole(roleData.role);
 
-      if (roleData.role === 'organization') {
-        navigate('/organization/dashboard');
-      } else if (roleData.role === 'intern') {
-        navigate('/applicant/dashboard');
-      } else if (roleData.role === 'admin') {
-        navigate('/admin/dashboard');
+        // Fetch profile based on role
+        if (roleData.role === 'organization') {
+          const { data: orgProfile } = await supabase
+            .from('organization_profiles')
+            .select('company_name')
+            .eq('user_id', userId)
+            .single();
+          
+          if (orgProfile) {
+            setUserName(orgProfile.company_name);
+          }
+        } else if (roleData.role === 'intern') {
+          const { data: internProfile } = await supabase
+            .from('intern_profiles')
+            .select('full_name')
+            .eq('user_id', userId)
+            .single();
+          
+          if (internProfile) {
+            setUserName(internProfile.full_name);
+          }
+        } else if (roleData.role === 'admin') {
+          setUserName('Admin');
+        }
       }
     } catch (error) {
-      console.error('Error checking user role:', error);
+      console.error('Error fetching user data:', error);
     }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setSession(null);
+      setUserName(null);
+      setUserRole(null);
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
+
+  const getDashboardRoute = () => {
+    if (userRole === 'organization') return '/organization/dashboard';
+    if (userRole === 'intern') return '/applicant/dashboard';
+    if (userRole === 'admin') return '/admin/dashboard';
+    return '/auth';
   };
   return (
     <div className="min-h-screen bg-background">
@@ -63,9 +137,40 @@ const Index = () => {
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <Button size="sm" className="bg-gradient-primary hover:opacity-90 transition-opacity" asChild>
-                <Link to="/auth">Get Started</Link>
-              </Button>
+              {user ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <UserIcon className="h-4 w-4" />
+                      <span className="hidden sm:inline">{userName || 'User'}</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium">{userName || 'User'}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{userRole || 'User'}</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to={getDashboardRoute()} className="cursor-pointer">
+                        <Briefcase className="mr-2 h-4 w-4" />
+                        Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive focus:text-destructive">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button size="sm" className="bg-gradient-primary hover:opacity-90 transition-opacity" asChild>
+                  <Link to="/auth">Get Started</Link>
+                </Button>
+              )}
             </div>
           </div>
         </div>
