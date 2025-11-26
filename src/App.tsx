@@ -24,6 +24,13 @@ import Messages from "./pages/Messages";
 import ApplicationTracking from "./pages/ApplicationTracking";
 import ManageApplicants from "./pages/ManageApplicants";
 import NotFound from "./pages/NotFound";
+import AdminManageOrganizations from "./pages/AdminManageOrganizations";
+import AdminContentModeration from "./pages/AdminContentModeration";
+import AdminAnalytics from "./pages/AdminAnalytics";
+import ApplicantProfile from "./pages/ApplicantProfile";
+import BrowseInternships from "./pages/BrowseInternships";
+import OrganizationProfile from "./pages/OrganizationProfile";
+import OrganizationSettings from "./pages/OrganizationSettings";
 
 const queryClient = new QueryClient();
 
@@ -104,6 +111,41 @@ const App = () => (
           <Route path="/admin/approvals" element={
             <ProtectedRoute requiredRole="admin">
               <OrganizationApprovals />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/organizations" element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminManageOrganizations />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/moderation" element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminContentModeration />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/analytics" element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminAnalytics />
+            </ProtectedRoute>
+          } />
+          <Route path="/applicant/profile" element={
+            <ProtectedRoute requiredRole="intern">
+              <ApplicantProfile />
+            </ProtectedRoute>
+          } />
+          <Route path="/applicant/browse" element={
+            <ProtectedRoute requiredRole="intern">
+              <BrowseInternships />
+            </ProtectedRoute>
+          } />
+          <Route path="/organization/profile" element={
+            <ProtectedRoute requiredRole="organization">
+              <OrganizationProfile />
+            </ProtectedRoute>
+          } />
+          <Route path="/organization/settings" element={
+            <ProtectedRoute requiredRole="organization">
+              <OrganizationSettings />
             </ProtectedRoute>
           } />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
