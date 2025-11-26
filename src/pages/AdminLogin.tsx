@@ -193,6 +193,15 @@ const AdminLogin = () => {
 
           <div className="mt-6 text-center space-y-2">
             <p className="text-sm text-muted-foreground">
+              <Button 
+                variant="link" 
+                className="p-0 h-auto font-normal"
+                onClick={() => navigate('/admin/password-reset')}
+              >
+                Forgot password?
+              </Button>
+            </p>
+            <p className="text-sm text-muted-foreground">
               First time setup?{" "}
               <Button 
                 variant="link" 
