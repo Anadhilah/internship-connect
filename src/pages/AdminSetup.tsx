@@ -76,24 +76,46 @@ export default function AdminSetup() {
         }
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("Failed to create user");
+      if (authError) {
+        if (authError.message.includes("User already registered")) {
+          toast.error("An account with this email already exists");
+        } else {
+          toast.error(authError.message);
+        }
+        setLoading(false);
+        return;
+      }
 
-      // Insert admin role
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .insert({
-          user_id: authData.user.id,
-          role: "admin"
-        });
+      if (authData.user) {
+        // Insert the admin role
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: authData.user.id,
+            role: 'admin'
+          });
 
-      if (roleError) throw roleError;
+        if (roleError) {
+          toast.error("Failed to assign admin role: " + roleError.message);
+          setLoading(false);
+          return;
+        }
 
-      toast.success("Admin account created successfully!");
-      navigate("/admin/dashboard");
+        // Check if email confirmation is required
+        if (authData.user.confirmed_at) {
+          toast.success("Admin account created successfully!");
+          navigate('/admin/dashboard', { replace: true });
+        } else {
+          toast.success("Admin account created! Please check your email to confirm.");
+          navigate('/admin/email-confirmation', { 
+            replace: true, 
+            state: { email: authData.user.email } 
+          });
+        }
+      }
     } catch (error: any) {
       console.error("Setup error:", error);
-      toast.error(error.message || "Failed to create admin account");
+      toast.error(error.message || "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
