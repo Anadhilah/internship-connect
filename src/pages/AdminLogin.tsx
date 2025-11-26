@@ -92,7 +92,10 @@ const AdminLogin = () => {
         if (error.message.includes("Invalid login credentials")) {
           toast.error("Invalid admin credentials");
         } else if (error.message.includes("Email not confirmed")) {
-          toast.error("Please confirm your email address");
+          toast.error("Please confirm your email address first");
+          navigate('/admin/email-confirmation', { 
+            state: { email: email.trim() } 
+          });
         } else {
           toast.error(error.message);
         }

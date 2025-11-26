@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import AdminLogin from "./pages/AdminLogin";
 import AdminSetup from "./pages/AdminSetup";
+import AdminEmailConfirmation from "./pages/AdminEmailConfirmation";
 import RoleSelection from "./pages/RoleSelection";
 import OrganizationOnboarding from "./pages/OrganizationOnboarding";
 import InternOnboarding from "./pages/InternOnboarding";
@@ -34,6 +35,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/admin/setup" element={<AdminSetup />} />
+          <Route path="/admin/email-confirmation" element={<AdminEmailConfirmation />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/onboarding/role-selection" element={
             <ProtectedRoute>
