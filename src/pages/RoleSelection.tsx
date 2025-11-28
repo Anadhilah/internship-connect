@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,61 @@ import { toast } from "sonner";
 export default function RoleSelection() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [checkingRole, setCheckingRole] = useState(true);
+
+  useEffect(() => {
+    checkExistingRole();
+  }, []);
+
+  const checkExistingRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        navigate('/auth');
+        return;
+      }
+
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      if (roleData?.role) {
+        // User already has a role, check for profile
+        if (roleData.role === 'organization') {
+          const { data: profile } = await supabase
+            .from('organization_profiles')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+
+          if (!profile) {
+            navigate('/onboarding/organization');
+          } else {
+            navigate('/organization/dashboard');
+          }
+        } else if (roleData.role === 'intern') {
+          const { data: profile } = await supabase
+            .from('intern_profiles')
+            .select('*')
+            .eq('user_id', user.id)
+            .single();
+
+          if (!profile) {
+            navigate('/onboarding/intern');
+          } else {
+            navigate('/applicant/dashboard');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error checking role:', error);
+    } finally {
+      setCheckingRole(false);
+    }
+  };
 
   const selectRole = async (role: 'organization' | 'intern') => {
     setLoading(true);
@@ -49,8 +104,16 @@ export default function RoleSelection() {
     }
   };
 
+  if (checkingRole) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-accent to-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-accent to-background p-4">
       <div className="w-full max-w-4xl">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-heading font-bold mb-2">Choose Your Role</h1>
