@@ -1,15 +1,66 @@
+import { useState, useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ApplicantSidebar } from "@/components/ApplicantSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, FileText, MessageSquare, TrendingUp, Clock, CheckCircle } from "lucide-react";
+import { Briefcase, FileText, MessageSquare, TrendingUp, Clock, CheckCircle, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const ApplicantDashboard = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    total: 0,
+    submitted: 0,
+    interview: 0,
+    accepted: 0
+  });
+  const [recentApplications, setRecentApplications] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Fetch applications with internship details
+      const { data: applications, error } = await supabase
+        .from('applications')
+        .select(`
+          *,
+          internships(
+            title,
+            organization_profiles(company_name)
+          )
+        `)
+        .eq('applicant_id', user.id)
+        .order('applied_at', { ascending: false })
+        .limit(3);
+
+      if (error) throw error;
+
+      // Calculate stats
+      const allApps = applications || [];
+      setStats({
+        total: allApps.length,
+        submitted: allApps.filter(a => a.status === 'submitted' || a.status === 'under_review').length,
+        interview: allApps.filter(a => a.status === 'interview_scheduled' || a.status === 'interviewed').length,
+        accepted: allApps.filter(a => a.status === 'accepted').length
+      });
+
+      setRecentApplications(allApps);
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -17,18 +68,11 @@ const ApplicantDashboard = () => {
     navigate("/auth");
   };
 
-  // Mock data - will be replaced with real data
-  const stats = [
-    { label: "Applications Sent", value: "12", icon: Briefcase, color: "text-primary" },
-    { label: "In Progress", value: "5", icon: Clock, color: "text-secondary" },
-    { label: "Interviews", value: "3", icon: MessageSquare, color: "text-accent-foreground" },
-    { label: "Offers", value: "1", icon: CheckCircle, color: "text-secondary" },
-  ];
-
-  const recentApplications = [
-    { company: "Tech Corp", position: "Software Engineering Intern", status: "Interview Scheduled", date: "2024-01-15" },
-    { company: "Design Studio", position: "UI/UX Design Intern", status: "Under Review", date: "2024-01-14" },
-    { company: "Marketing Inc", position: "Digital Marketing Intern", status: "Application Sent", date: "2024-01-13" },
+  const statsDisplay = [
+    { label: "Applications Sent", value: stats.total.toString(), icon: Briefcase, color: "text-primary" },
+    { label: "In Progress", value: stats.submitted.toString(), icon: Clock, color: "text-secondary" },
+    { label: "Interviews", value: stats.interview.toString(), icon: MessageSquare, color: "text-accent-foreground" },
+    { label: "Offers", value: stats.accepted.toString(), icon: CheckCircle, color: "text-secondary" },
   ];
 
   return (
@@ -50,9 +94,15 @@ const ApplicantDashboard = () => {
           </header>
 
           <main className="flex-1 p-6 bg-muted/20">
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {stats.map((stat) => (
+            {loading ? (
+              <div className="flex items-center justify-center h-64">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <>
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                  {statsDisplay.map((stat) => (
                 <Card key={stat.label} className="border-2 hover:shadow-soft transition-shadow">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
@@ -119,18 +169,22 @@ const ApplicantDashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {recentApplications.map((app, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors">
-                        <div className="flex-1">
-                          <h4 className="font-semibold">{app.position}</h4>
-                          <p className="text-sm text-muted-foreground">{app.company}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{app.date}</p>
+                    {recentApplications.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-4">No applications yet</p>
+                    ) : (
+                      recentApplications.map((app) => (
+                        <div key={app.id} className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors">
+                          <div className="flex-1">
+                            <h4 className="font-semibold">{app.internships?.title}</h4>
+                            <p className="text-sm text-muted-foreground">{app.internships?.organization_profiles?.company_name}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{new Date(app.applied_at).toLocaleDateString()}</p>
+                          </div>
+                          <Badge variant={app.status === "interview_scheduled" ? "default" : "secondary"}>
+                            {app.status.replace('_', ' ')}
+                          </Badge>
                         </div>
-                        <Badge variant={app.status === "Interview Scheduled" ? "default" : "secondary"}>
-                          {app.status}
-                        </Badge>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -148,6 +202,8 @@ const ApplicantDashboard = () => {
                 </div>
               </CardContent>
             </Card>
+              </>
+            )}
           </main>
         </div>
       </div>

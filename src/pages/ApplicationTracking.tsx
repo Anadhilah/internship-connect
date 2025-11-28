@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ApplicantSidebar } from "@/components/ApplicantSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,128 +16,110 @@ import {
   XCircle,
   AlertCircle,
   Send,
-  Eye
+  Eye,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface Application {
   id: string;
-  company: string;
-  position: string;
-  location: string;
-  appliedDate: string;
-  status: "applied" | "under-review" | "interview" | "rejected" | "accepted";
-  timeline: {
-    status: string;
-    date: string;
-    description: string;
-  }[];
-  salary?: string;
+  status: string;
+  applied_at: string;
+  internships: {
+    title: string;
+    location: string;
+    organization_profiles: {
+      company_name: string;
+    };
+  };
 }
 
 const ApplicationTracking = () => {
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock applications data
-  const applications: Application[] = [
-    {
-      id: "1",
-      company: "TechCorp Solutions",
-      position: "Frontend Developer Intern",
-      location: "San Francisco, CA",
-      appliedDate: "2024-01-15",
-      status: "interview",
-      salary: "$25/hour",
-      timeline: [
-        { status: "Applied", date: "2024-01-15", description: "Application submitted successfully" },
-        { status: "Under Review", date: "2024-01-18", description: "Resume being reviewed by hiring team" },
-        { status: "Interview Scheduled", date: "2024-01-22", description: "Technical interview on Jan 28, 2024 at 2:00 PM" },
-      ],
-    },
-    {
-      id: "2",
-      company: "StartupHub Inc",
-      position: "Full Stack Developer Intern",
-      location: "Remote",
-      appliedDate: "2024-01-14",
-      status: "under-review",
-      salary: "$20-30/hour",
-      timeline: [
-        { status: "Applied", date: "2024-01-14", description: "Application submitted successfully" },
-        { status: "Under Review", date: "2024-01-16", description: "Your application is being reviewed" },
-      ],
-    },
-    {
-      id: "3",
-      company: "Digital Agency Co",
-      position: "UI/UX Design Intern",
-      location: "New York, NY",
-      appliedDate: "2024-01-13",
-      status: "accepted",
-      salary: "$22/hour",
-      timeline: [
-        { status: "Applied", date: "2024-01-13", description: "Application submitted successfully" },
-        { status: "Under Review", date: "2024-01-15", description: "Resume reviewed" },
-        { status: "Interview", date: "2024-01-18", description: "Completed initial interview" },
-        { status: "Accepted", date: "2024-01-20", description: "Congratulations! Offer letter sent" },
-      ],
-    },
-    {
-      id: "4",
-      company: "Finance Solutions Ltd",
-      position: "Data Analyst Intern",
-      location: "Boston, MA",
-      appliedDate: "2024-01-10",
-      status: "rejected",
-      salary: "$18/hour",
-      timeline: [
-        { status: "Applied", date: "2024-01-10", description: "Application submitted successfully" },
-        { status: "Under Review", date: "2024-01-12", description: "Application reviewed" },
-        { status: "Rejected", date: "2024-01-14", description: "Position filled by another candidate" },
-      ],
-    },
-    {
-      id: "5",
-      company: "Marketing Pro Agency",
-      position: "Digital Marketing Intern",
-      location: "Los Angeles, CA",
-      appliedDate: "2024-01-12",
-      status: "applied",
-      salary: "$15-20/hour",
-      timeline: [
-        { status: "Applied", date: "2024-01-12", description: "Application submitted successfully" },
-      ],
-    },
-  ];
+  useEffect(() => {
+    fetchApplications();
+  }, []);
 
-  const getStatusInfo = (status: Application["status"]) => {
-    const statusMap = {
-      applied: { label: "Applied", variant: "secondary" as const, icon: Send, color: "text-blue-500" },
-      "under-review": { label: "Under Review", variant: "default" as const, icon: Eye, color: "text-yellow-500" },
-      interview: { label: "Interview", variant: "default" as const, icon: AlertCircle, color: "text-purple-500" },
-      rejected: { label: "Rejected", variant: "destructive" as const, icon: XCircle, color: "text-destructive" },
-      accepted: { label: "Accepted", variant: "default" as const, icon: CheckCircle2, color: "text-green-500" },
-    };
-    return statusMap[status];
+  const fetchApplications = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('applications')
+        .select(`
+          *,
+          internships!inner(
+            title,
+            location,
+            organization_id,
+            organization_profiles!internships_organization_id_fkey(company_name)
+          )
+        `)
+        .eq('applicant_id', user.id)
+        .order('applied_at', { ascending: false });
+
+      if (error) throw error;
+      setApplications(data as any || []);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const getStatusInfo = (status: string) => {
+    const statusMap: Record<string, any> = {
+      submitted: { label: "Submitted", variant: "secondary", icon: Send, color: "text-blue-500" },
+      under_review: { label: "Under Review", variant: "default", icon: Eye, color: "text-yellow-500" },
+      interview_scheduled: { label: "Interview", variant: "default", icon: AlertCircle, color: "text-purple-500" },
+      interviewed: { label: "Interviewed", variant: "default", icon: AlertCircle, color: "text-purple-500" },
+      rejected: { label: "Rejected", variant: "destructive", icon: XCircle, color: "text-destructive" },
+      accepted: { label: "Accepted", variant: "default", icon: CheckCircle2, color: "text-green-500" },
+      withdrawn: { label: "Withdrawn", variant: "secondary", icon: XCircle, color: "text-gray-500" },
+    };
+    return statusMap[status] || statusMap.submitted;
+  };
   const filteredApplications = applications.filter((app) => {
     const matchesSearch = 
-      app.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.position.toLowerCase().includes(searchQuery.toLowerCase());
+      app.internships.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      app.internships.organization_profiles.company_name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || app.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const statusCounts = {
     all: applications.length,
-    applied: applications.filter((a) => a.status === "applied").length,
-    "under-review": applications.filter((a) => a.status === "under-review").length,
-    interview: applications.filter((a) => a.status === "interview").length,
+    submitted: applications.filter((a) => a.status === "submitted").length,
+    under_review: applications.filter((a) => a.status === "under_review").length,
+    interview_scheduled: applications.filter((a) => a.status === "interview_scheduled" || a.status === "interviewed").length,
     rejected: applications.filter((a) => a.status === "rejected").length,
     accepted: applications.filter((a) => a.status === "accepted").length,
   };
+
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="flex h-screen w-full bg-background">
+          <ApplicantSidebar />
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -181,14 +163,14 @@ const ApplicationTracking = () => {
                   <TabsTrigger value="all">
                     All ({statusCounts.all})
                   </TabsTrigger>
-                  <TabsTrigger value="applied">
-                    Applied ({statusCounts.applied})
+                  <TabsTrigger value="submitted">
+                    Submitted ({statusCounts.submitted})
                   </TabsTrigger>
-                  <TabsTrigger value="under-review">
-                    Review ({statusCounts["under-review"]})
+                  <TabsTrigger value="under_review">
+                    Review ({statusCounts.under_review})
                   </TabsTrigger>
-                  <TabsTrigger value="interview">
-                    Interview ({statusCounts.interview})
+                  <TabsTrigger value="interview_scheduled">
+                    Interview ({statusCounts.interview_scheduled})
                   </TabsTrigger>
                   <TabsTrigger value="accepted">
                     Accepted ({statusCounts.accepted})
@@ -215,26 +197,21 @@ const ApplicationTracking = () => {
                           <CardHeader className="pb-4">
                             <div className="flex items-start justify-between">
                               <div className="space-y-1">
-                                <CardTitle className="text-xl">{application.position}</CardTitle>
+                                <CardTitle className="text-xl">{application.internships.title}</CardTitle>
                                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                                   <div className="flex items-center gap-1">
                                     <Building2 className="h-4 w-4" />
-                                    {application.company}
+                                    {application.internships.organization_profiles.company_name}
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <MapPin className="h-4 w-4" />
-                                    {application.location}
+                                    {application.internships.location}
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <Calendar className="h-4 w-4" />
-                                    Applied {application.appliedDate}
+                                    Applied {new Date(application.applied_at).toLocaleDateString()}
                                   </div>
                                 </div>
-                                {application.salary && (
-                                  <p className="text-sm font-medium text-primary">
-                                    {application.salary}
-                                  </p>
-                                )}
                               </div>
                               <Badge variant={statusInfo.variant} className="gap-1">
                                 <StatusIcon className="h-3 w-3" />
@@ -244,66 +221,10 @@ const ApplicationTracking = () => {
                           </CardHeader>
 
                           <CardContent>
-                            {/* Timeline */}
-                            <div className="space-y-4">
-                              <h4 className="font-semibold text-sm flex items-center gap-2">
-                                <Clock className="h-4 w-4" />
-                                Application Timeline
-                              </h4>
-                              <div className="relative pl-6 space-y-4">
-                                {/* Timeline line */}
-                                <div className="absolute left-2 top-2 bottom-2 w-0.5 bg-border" />
-
-                                {application.timeline.map((event, index) => {
-                                  const isLast = index === application.timeline.length - 1;
-                                  return (
-                                    <div key={index} className="relative">
-                                      {/* Timeline dot */}
-                                      <div
-                                        className={cn(
-                                          "absolute -left-[1.3rem] top-1 h-4 w-4 rounded-full border-2 bg-background",
-                                          isLast ? "border-primary bg-primary" : "border-muted-foreground"
-                                        )}
-                                      />
-                                      
-                                      <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                          <p className={cn(
-                                            "font-medium text-sm",
-                                            isLast && "text-primary"
-                                          )}>
-                                            {event.status}
-                                          </p>
-                                          <span className="text-xs text-muted-foreground">
-                                            {event.date}
-                                          </span>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground">
-                                          {event.description}
-                                        </p>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="flex gap-2 mt-6 pt-4 border-t border-border">
+                            <div className="flex gap-2">
                               <Button variant="outline" size="sm">
                                 View Details
                               </Button>
-                              {application.status === "interview" && (
-                                <Button size="sm">
-                                  <Calendar className="h-4 w-4 mr-2" />
-                                  View Interview Details
-                                </Button>
-                              )}
-                              {application.status === "accepted" && (
-                                <Button size="sm">
-                                  View Offer Letter
-                                </Button>
-                              )}
                             </div>
                           </CardContent>
                         </Card>

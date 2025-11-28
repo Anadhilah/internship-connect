@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ApplicantSidebar } from "@/components/ApplicantSidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, MapPin, Briefcase, Building2, Bookmark } from "lucide-react";
+import { Search, MapPin, Briefcase, Building2, Bookmark, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -14,53 +14,103 @@ export default function BrowseInternships() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
+  const [internships, setInternships] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchInternships();
+  }, []);
+
+  const fetchInternships = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('internships')
+        .select(`
+          *,
+          organization_profiles!internships_organization_id_fkey(company_name)
+        `)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setInternships(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/auth");
   };
 
-  const mockInternships = [
-    {
-      id: 1,
-      title: "Software Engineering Intern",
-      company: "Tech Corp",
-      location: "San Francisco, CA",
-      type: "Remote",
-      industry: "Technology",
-      description: "Work on cutting-edge web applications using React and Node.js. Great learning opportunity for aspiring developers.",
-    },
-    {
-      id: 2,
-      title: "Marketing Intern",
-      company: "Brand Agency",
-      location: "New York, NY",
-      type: "Hybrid",
-      industry: "Marketing",
-      description: "Assist with social media campaigns and content creation. Perfect for creative minds passionate about digital marketing.",
-    },
-    {
-      id: 3,
-      title: "Data Science Intern",
-      company: "Analytics Inc",
-      location: "Austin, TX",
-      type: "On-site",
-      industry: "Data Science",
-      description: "Work with large datasets and machine learning models. Gain hands-on experience with Python and data visualization tools.",
-    },
-  ];
+  const handleApply = async (internshipId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-  const handleApply = (internshipId: number) => {
-    toast({
-      title: "Application Submitted",
-      description: "Your application has been sent to the organization.",
-    });
+      // Check if already applied
+      const { data: existing } = await supabase
+        .from('applications')
+        .select('id')
+        .eq('internship_id', internshipId)
+        .eq('applicant_id', user.id)
+        .single();
+
+      if (existing) {
+        toast({
+          title: "Already Applied",
+          description: "You have already applied to this internship.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('applications')
+        .insert({
+          internship_id: internshipId,
+          applicant_id: user.id,
+          status: 'submitted'
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Application Submitted",
+        description: "Your application has been sent to the organization.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
-  const filteredInternships = mockInternships.filter((internship) =>
+  const filteredInternships = internships.filter((internship) =>
     internship.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    internship.company.toLowerCase().includes(searchQuery.toLowerCase())
+    internship.organization_profiles?.company_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="flex min-h-screen w-full">
+          <ApplicantSidebar />
+          <main className="flex-1 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </main>
+        </div>
+      </SidebarProvider>
+    );
+  }
 
   return (
     <SidebarProvider>
@@ -98,7 +148,7 @@ export default function BrowseInternships() {
                         </div>
                         <div>
                           <CardTitle className="text-lg">{internship.title}</CardTitle>
-                          <p className="text-sm text-muted-foreground">{internship.company}</p>
+                          <p className="text-sm text-muted-foreground">{internship.organization_profiles?.company_name}</p>
                         </div>
                       </div>
                       <Button size="icon" variant="ghost">
@@ -114,11 +164,16 @@ export default function BrowseInternships() {
                       </Badge>
                       <Badge variant="outline">
                         <Briefcase className="h-3 w-3 mr-1" />
-                        {internship.type}
+                        {internship.work_type}
                       </Badge>
-                      <Badge>{internship.industry}</Badge>
+                      <Badge>{internship.department}</Badge>
+                      <Badge variant="outline">{internship.stipend}</Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground">{internship.description}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{internship.description}</p>
+                    <div className="text-xs text-muted-foreground">
+                      <p>Duration: {internship.duration}</p>
+                      <p>Deadline: {new Date(internship.application_deadline).toLocaleDateString()}</p>
+                    </div>
                     <div className="flex gap-2">
                       <Button className="flex-1" onClick={() => handleApply(internship.id)}>
                         Apply Now

@@ -1,15 +1,71 @@
+import { useState, useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { OrganizationSidebar } from "@/components/OrganizationSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, Users, Eye, CheckCircle, Clock, XCircle } from "lucide-react";
+import { Briefcase, Users, Eye, CheckCircle, Clock, XCircle, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const OrganizationDashboard = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    activePostings: 0,
+    totalApplicants: 0,
+    underReview: 0,
+    hired: 0
+  });
+  const [recentApplicants, setRecentApplicants] = useState<any[]>([]);
+  const [activePostings, setActivePostings] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Fetch internships
+      const { data: internships } = await supabase
+        .from('internships')
+        .select('*')
+        .eq('organization_id', user.id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+
+      // Fetch applications
+      const { data: applications } = await supabase
+        .from('applications')
+        .select(`
+          *,
+          internships!inner(organization_id),
+          intern_profiles(full_name)
+        `)
+        .eq('internships.organization_id', user.id)
+        .order('applied_at', { ascending: false })
+        .limit(4);
+
+      const allApps = applications || [];
+      setStats({
+        activePostings: (internships || []).length,
+        totalApplicants: allApps.length,
+        underReview: allApps.filter(a => a.status === 'under_review' || a.status === 'submitted').length,
+        hired: allApps.filter(a => a.status === 'accepted').length
+      });
+
+      setRecentApplicants(allApps);
+      setActivePostings(internships || []);
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -17,25 +73,11 @@ const OrganizationDashboard = () => {
     navigate("/auth");
   };
 
-  // Mock data
-  const stats = [
-    { label: "Active Postings", value: "8", icon: Briefcase, color: "text-primary" },
-    { label: "Total Applicants", value: "127", icon: Users, color: "text-secondary" },
-    { label: "Under Review", value: "45", icon: Clock, color: "text-accent-foreground" },
-    { label: "Hired", value: "12", icon: CheckCircle, color: "text-secondary" },
-  ];
-
-  const recentApplicants = [
-    { name: "Alice Johnson", position: "Software Engineering Intern", status: "New", date: "2024-01-15", match: "95%" },
-    { name: "Bob Smith", position: "Marketing Intern", status: "Reviewing", date: "2024-01-15", match: "88%" },
-    { name: "Carol Williams", position: "Design Intern", status: "Interview", date: "2024-01-14", match: "92%" },
-    { name: "David Brown", position: "Software Engineering Intern", status: "New", date: "2024-01-14", match: "85%" },
-  ];
-
-  const activePostings = [
-    { title: "Software Engineering Intern", applicants: 45, views: 320, posted: "2024-01-10" },
-    { title: "Marketing Intern", applicants: 32, views: 256, posted: "2024-01-12" },
-    { title: "UI/UX Design Intern", applicants: 28, views: 198, posted: "2024-01-13" },
+  const statsDisplay = [
+    { label: "Active Postings", value: stats.activePostings.toString(), icon: Briefcase, color: "text-primary" },
+    { label: "Total Applicants", value: stats.totalApplicants.toString(), icon: Users, color: "text-secondary" },
+    { label: "Under Review", value: stats.underReview.toString(), icon: Clock, color: "text-accent-foreground" },
+    { label: "Hired", value: stats.hired.toString(), icon: CheckCircle, color: "text-secondary" },
   ];
 
   return (
@@ -57,9 +99,15 @@ const OrganizationDashboard = () => {
           </header>
 
           <main className="flex-1 p-6 bg-muted/20">
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {stats.map((stat) => (
+            {loading ? (
+              <div className="flex items-center justify-center h-64">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <>
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                  {statsDisplay.map((stat) => (
                 <Card key={stat.label} className="border-2 hover:shadow-soft transition-shadow">
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
@@ -125,21 +173,22 @@ const OrganizationDashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {activePostings.map((post, idx) => (
-                      <div key={idx} className="p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors">
-                        <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-semibold">{post.title}</h4>
-                          <Badge variant="secondary">{post.applicants} applicants</Badge>
+                    {activePostings.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-4">No active postings</p>
+                    ) : (
+                      activePostings.slice(0, 3).map((post) => (
+                        <div key={post.id} className="p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors">
+                          <div className="flex items-start justify-between mb-2">
+                            <h4 className="font-semibold">{post.title}</h4>
+                            <Badge variant="secondary">{post.positions_available} position(s)</Badge>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <span>{post.location}</span>
+                            <span>Posted {new Date(post.created_at).toLocaleDateString()}</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Eye className="h-3 w-3" />
-                            {post.views} views
-                          </span>
-                          <span>Posted {post.posted}</span>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -158,39 +207,42 @@ const OrganizationDashboard = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {recentApplicants.map((applicant, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors">
-                      <div className="flex items-center gap-4 flex-1">
-                        <div className="h-10 w-10 rounded-full bg-gradient-primary flex items-center justify-center text-white font-semibold">
-                          {applicant.name.charAt(0)}
+                  {recentApplicants.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-4">No applicants yet</p>
+                  ) : (
+                    recentApplicants.map((applicant) => (
+                      <div key={applicant.id} className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors">
+                        <div className="flex items-center gap-4 flex-1">
+                          <div className="h-10 w-10 rounded-full bg-gradient-primary flex items-center justify-center text-white font-semibold">
+                            {applicant.intern_profiles?.full_name?.charAt(0) || 'U'}
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-semibold">{applicant.intern_profiles?.full_name || 'Unknown'}</h4>
+                            <p className="text-sm text-muted-foreground">Applied {new Date(applicant.applied_at).toLocaleDateString()}</p>
+                          </div>
+                          <Badge variant={applicant.status === "submitted" ? "default" : "secondary"}>
+                            {applicant.status.replace('_', ' ')}
+                          </Badge>
                         </div>
-                        <div className="flex-1">
-                          <h4 className="font-semibold">{applicant.name}</h4>
-                          <p className="text-sm text-muted-foreground">{applicant.position}</p>
+                        <div className="flex gap-2 ml-4">
+                          <Button size="sm" variant="outline" onClick={() => navigate("/organization/applicants")}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="default">
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="outline">
+                            <XCircle className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <Badge variant="outline" className="text-secondary border-secondary">
-                          {applicant.match} match
-                        </Badge>
-                        <Badge variant={applicant.status === "New" ? "default" : "secondary"}>
-                          {applicant.status}
-                        </Badge>
                       </div>
-                      <div className="flex gap-2 ml-4">
-                        <Button size="sm" variant="outline">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="default">
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <XCircle className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
+              </>
+            )}
           </main>
         </div>
       </div>
