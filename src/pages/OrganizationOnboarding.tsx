@@ -23,6 +23,7 @@ const organizationSchema = z.object({
 
 export default function OrganizationOnboarding() {
   const navigate = useNavigate();
+  const [showWelcome, setShowWelcome] = useState(true);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     companyName: "",
@@ -93,6 +94,76 @@ export default function OrganizationOnboarding() {
       setLoading(false);
     }
   };
+
+  if (showWelcome) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-accent to-background p-4">
+        <Card className="w-full max-w-2xl">
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl font-heading font-bold">
+              Welcome to Our Platform! 🚀
+            </CardTitle>
+            <CardDescription className="text-base mt-2">
+              Let's set up your organization profile to start posting internships
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-1 rounded-full bg-primary/10 p-2">
+                  <span className="text-xl">🏢</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Create Your Profile</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Share details about your company to attract the best talent
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="mt-1 rounded-full bg-primary/10 p-2">
+                  <span className="text-xl">✅</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Get Verified</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Your profile will be reviewed by our team to ensure quality
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="mt-1 rounded-full bg-primary/10 p-2">
+                  <span className="text-xl">📢</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Post Opportunities</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Once approved, start posting internships and connect with candidates
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-muted p-4">
+              <h4 className="font-semibold text-sm mb-2 text-foreground">What you'll need:</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• Company name and size</li>
+                <li>• Industry and location</li>
+                <li>• Company description</li>
+                <li>• Company website (optional)</li>
+              </ul>
+            </div>
+
+            <Button onClick={() => setShowWelcome(false)} className="w-full" size="lg">
+              Get Started
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-accent to-background p-4">
