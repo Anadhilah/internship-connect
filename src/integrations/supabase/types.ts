@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      applications: {
+        Row: {
+          applicant_id: string
+          applied_at: string
+          cover_letter: string | null
+          id: string
+          internship_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          applicant_id: string
+          applied_at?: string
+          cover_letter?: string | null
+          id?: string
+          internship_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          applicant_id?: string
+          applied_at?: string
+          cover_letter?: string | null
+          id?: string
+          internship_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "applications_internship_id_fkey"
+            columns: ["internship_id"]
+            isOneToOne: false
+            referencedRelation: "internships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           created_at: string
@@ -86,6 +124,72 @@ export type Database = {
           university?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      internships: {
+        Row: {
+          application_deadline: string
+          created_at: string
+          department: string
+          description: string
+          duration: string
+          education_level: string
+          id: string
+          location: string
+          organization_id: string
+          positions_available: number
+          requirements: string
+          responsibilities: string
+          skills: string[]
+          start_date: string
+          status: string
+          stipend: string
+          title: string
+          updated_at: string
+          work_type: string
+        }
+        Insert: {
+          application_deadline: string
+          created_at?: string
+          department: string
+          description: string
+          duration: string
+          education_level: string
+          id?: string
+          location: string
+          organization_id: string
+          positions_available?: number
+          requirements: string
+          responsibilities: string
+          skills: string[]
+          start_date: string
+          status?: string
+          stipend: string
+          title: string
+          updated_at?: string
+          work_type: string
+        }
+        Update: {
+          application_deadline?: string
+          created_at?: string
+          department?: string
+          description?: string
+          duration?: string
+          education_level?: string
+          id?: string
+          location?: string
+          organization_id?: string
+          positions_available?: number
+          requirements?: string
+          responsibilities?: string
+          skills?: string[]
+          start_date?: string
+          status?: string
+          stipend?: string
+          title?: string
+          updated_at?: string
+          work_type?: string
         }
         Relationships: []
       }

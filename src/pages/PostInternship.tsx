@@ -87,7 +87,7 @@ const PostInternship = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
@@ -97,7 +97,38 @@ const PostInternship = () => {
         skills,
       });
 
-      console.log("Form submitted:", validatedData);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toastHook({
+          title: "Error",
+          description: "You must be logged in to post an internship",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('internships')
+        .insert({
+          organization_id: user.id,
+          title: validatedData.title,
+          department: validatedData.department,
+          location: validatedData.location,
+          work_type: validatedData.type,
+          duration: validatedData.duration,
+          stipend: validatedData.stipend,
+          description: validatedData.description,
+          responsibilities: validatedData.responsibilities,
+          requirements: validatedData.requirements,
+          skills: validatedData.skills,
+          education_level: validatedData.education,
+          application_deadline: validatedData.applicationDeadline,
+          start_date: validatedData.startDate,
+          positions_available: parseInt(validatedData.positions),
+          status: 'active'
+        });
+
+      if (error) throw error;
       
       toastHook({
         title: "Success!",
@@ -122,7 +153,7 @@ const PostInternship = () => {
       });
       setSkills([]);
       setErrors({});
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         const newErrors: Record<string, string> = {};
         error.errors.forEach((err) => {
@@ -134,6 +165,12 @@ const PostInternship = () => {
         toastHook({
           title: "Validation Error",
           description: "Please check all required fields",
+          variant: "destructive",
+        });
+      } else {
+        toastHook({
+          title: "Error",
+          description: error.message || "Failed to post internship",
           variant: "destructive",
         });
       }
