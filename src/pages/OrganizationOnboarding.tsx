@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { z } from "zod";
@@ -31,6 +32,17 @@ export default function OrganizationOnboarding() {
     description: "",
     website: "",
   });
+
+  const progress = useMemo(() => {
+    const requiredFields = [
+      formData.companyName,
+      formData.companySize,
+      formData.industry,
+      formData.location,
+    ];
+    const filledFields = requiredFields.filter(field => field.trim() !== "").length;
+    return Math.round((filledFields / requiredFields.length) * 100);
+  }, [formData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,6 +104,13 @@ export default function OrganizationOnboarding() {
           <CardDescription>
             Tell us about your company to get started
           </CardDescription>
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Profile Completion</span>
+              <span className="font-medium">{progress}%</span>
+            </div>
+            <Progress value={progress} className="h-2" />
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
