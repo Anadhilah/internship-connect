@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ApplicantSidebar } from "@/components/ApplicantSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,28 +17,218 @@ import {
   Eye, 
   CheckCircle2,
   AlertCircle,
-  Lightbulb
+  Lightbulb,
+  Loader2,
+  Trash2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { z } from "zod";
+
+const fileSchema = z.object({
+  file: z.instanceof(File)
+    .refine((file) => file.size <= 20 * 1024 * 1024, "File size must be less than 20MB")
+    .refine(
+      (file) => 
+        file.type === "application/pdf" || 
+        file.type === "application/msword" ||
+        file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "Only PDF and DOC/DOCX files are allowed"
+    )
+});
 
 const ResumeManagement = () => {
   const { toast } = useToast();
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [existingResumeUrl, setExistingResumeUrl] = useState<string | null>(null);
   const [resumeScore, setResumeScore] = useState(72);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    fetchExistingResume();
+  }, []);
+
+  const fetchExistingResume = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      setUserId(user.id);
+
+      const { data: profile, error } = await supabase
+        .from('intern_profiles')
+        .select('resume_url')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) throw error;
+      
+      if (profile?.resume_url) {
+        setExistingResumeUrl(profile.resume_url);
+      }
+    } catch (error: any) {
+      console.error('Error fetching resume:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && (file.type === "application/pdf" || file.type.includes("document"))) {
+    if (!file) return;
+
+    try {
+      // Validate file
+      fileSchema.parse({ file });
       setUploadedFile(file);
+      
       toast({
-        title: "Resume uploaded",
-        description: `${file.name} has been uploaded successfully.`,
+        title: "File selected",
+        description: `${file.name} is ready to upload.`,
       });
-    } else {
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Invalid file",
+          description: error.errors[0].message,
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleSaveResume = async () => {
+    if (!uploadedFile || !userId) return;
+
+    setIsUploading(true);
+    
+    try {
+      // Delete old resume if exists
+      if (existingResumeUrl) {
+        const oldPath = existingResumeUrl.split('/').pop();
+        if (oldPath) {
+          await supabase.storage
+            .from('resumes')
+            .remove([`${userId}/${oldPath}`]);
+        }
+      }
+
+      // Upload new resume
+      const fileExt = uploadedFile.name.split('.').pop();
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${userId}/${fileName}`;
+
+      const { error: uploadError, data } = await supabase.storage
+        .from('resumes')
+        .upload(filePath, uploadedFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('resumes')
+        .getPublicUrl(filePath);
+
+      // Update profile with resume URL
+      const { error: updateError } = await supabase
+        .from('intern_profiles')
+        .update({ resume_url: publicUrl })
+        .eq('user_id', userId);
+
+      if (updateError) throw updateError;
+
+      setExistingResumeUrl(publicUrl);
+      setUploadedFile(null);
+      
       toast({
-        title: "Invalid file type",
-        description: "Please upload a PDF or DOC file.",
+        title: "Success!",
+        description: "Your resume has been uploaded successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Upload failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDownloadResume = async () => {
+    if (!existingResumeUrl || !userId) return;
+
+    try {
+      const fileName = existingResumeUrl.split('/').pop();
+      if (!fileName) return;
+
+      const { data, error } = await supabase.storage
+        .from('resumes')
+        .download(`${userId}/${fileName}`);
+
+      if (error) throw error;
+
+      // Create download link
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Download started",
+        description: "Your resume is being downloaded.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Download failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteResume = async () => {
+    if (!existingResumeUrl || !userId) return;
+
+    try {
+      const fileName = existingResumeUrl.split('/').pop();
+      if (!fileName) return;
+
+      // Delete from storage
+      const { error: deleteError } = await supabase.storage
+        .from('resumes')
+        .remove([`${userId}/${fileName}`]);
+
+      if (deleteError) throw deleteError;
+
+      // Update profile
+      const { error: updateError } = await supabase
+        .from('intern_profiles')
+        .update({ resume_url: null })
+        .eq('user_id', userId);
+
+      if (updateError) throw updateError;
+
+      setExistingResumeUrl(null);
+      
+      toast({
+        title: "Resume deleted",
+        description: "Your resume has been removed.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Delete failed",
+        description: error.message,
         variant: "destructive",
       });
     }
@@ -73,6 +263,19 @@ const ResumeManagement = () => {
     },
   ];
 
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="flex h-screen w-full bg-background">
+          <ApplicantSidebar />
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
+
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full bg-background">
@@ -99,32 +302,41 @@ const ResumeManagement = () => {
                     <div>
                       <CardTitle>Your Resume</CardTitle>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {uploadedFile ? uploadedFile.name : "No resume uploaded yet"}
+                        {existingResumeUrl 
+                          ? "Resume uploaded" 
+                          : uploadedFile 
+                          ? uploadedFile.name 
+                          : "No resume uploaded yet"}
                       </p>
                     </div>
-                    {uploadedFile && (
+                    {existingResumeUrl && (
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4 mr-2" />
-                          Preview
-                        </Button>
-                        <Button variant="outline" size="sm">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={handleDownloadResume}
+                        >
                           <Download className="h-4 w-4 mr-2" />
                           Download
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={handleDeleteResume}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
                         </Button>
                       </div>
                     )}
                   </div>
                 </CardHeader>
-                {uploadedFile && (
+                {existingResumeUrl && (
                   <CardContent>
                     <div className="space-y-4">
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-medium">Resume Score</span>
-                          <span className="text-2xl font-bold text-primary">{resumeScore}%</span>
-                        </div>
-                        <Progress value={resumeScore} className="h-2" />
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <span>Resume uploaded and saved to your profile</span>
                       </div>
                     </div>
                   </CardContent>
@@ -164,9 +376,22 @@ const ResumeManagement = () => {
                         </p>
                       </div>
                       {uploadedFile && (
-                        <Button className="w-full">
-                          <CheckCircle2 className="h-4 w-4 mr-2" />
-                          Save Resume
+                        <Button 
+                          className="w-full" 
+                          onClick={handleSaveResume}
+                          disabled={isUploading}
+                        >
+                          {isUploading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="h-4 w-4 mr-2" />
+                              Save Resume
+                            </>
+                          )}
                         </Button>
                       )}
                     </TabsContent>
@@ -224,7 +449,7 @@ const ResumeManagement = () => {
               </Card>
 
               {/* AI Suggestions */}
-              {uploadedFile && (
+              {existingResumeUrl && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
