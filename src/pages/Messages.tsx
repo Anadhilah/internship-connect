@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { ApplicantSidebar } from "@/components/ApplicantSidebar";
 import { OrganizationSidebar } from "@/components/OrganizationSidebar";
@@ -8,23 +8,27 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Send, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
+import { format } from "date-fns";
 
 interface Message {
   id: string;
-  senderId: string;
-  senderName: string;
+  sender_id: string;
   content: string;
-  timestamp: string;
-  isOwn: boolean;
+  created_at: string;
 }
 
-interface Conversation {
+interface ConversationData {
   id: string;
-  participantName: string;
-  participantRole: string;
-  lastMessage: string;
-  timestamp: string;
-  unread: number;
+  participant1_id: string;
+  participant2_id: string;
+  updated_at: string;
+}
+
+interface ParticipantProfile {
+  name: string;
+  role: string;
 }
 
 interface MessagesProps {
@@ -32,95 +36,214 @@ interface MessagesProps {
 }
 
 const Messages = ({ userRole = "applicant" }: MessagesProps) => {
-  const [selectedConversation, setSelectedConversation] = useState<string>("1");
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [conversations, setConversations] = useState<(ConversationData & { participant: ParticipantProfile; lastMessage?: string })[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
-  // Mock conversations
-  const conversations: Conversation[] = [
-    {
-      id: "1",
-      participantName: "TechCorp Solutions",
-      participantRole: "Organization",
-      lastMessage: "Thanks for your application! We'd love to schedule an interview.",
-      timestamp: "2 min ago",
-      unread: 2,
-    },
-    {
-      id: "2",
-      participantName: "StartupHub Inc",
-      participantRole: "Organization",
-      lastMessage: "Could you share more details about your React experience?",
-      timestamp: "1 hour ago",
-      unread: 0,
-    },
-    {
-      id: "3",
-      participantName: "Digital Agency Co",
-      participantRole: "Organization",
-      lastMessage: "Great! Looking forward to meeting you.",
-      timestamp: "Yesterday",
-      unread: 0,
-    },
-  ];
+  // Get current user
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    getCurrentUser();
+  }, []);
 
-  // Mock messages for selected conversation
-  const messages: Message[] = [
-    {
-      id: "1",
-      senderId: "org1",
-      senderName: "TechCorp Solutions",
-      content: "Hi! Thank you for applying to our Frontend Developer internship position.",
-      timestamp: "10:30 AM",
-      isOwn: false,
-    },
-    {
-      id: "2",
-      senderId: "user1",
-      senderName: "You",
-      content: "Thank you! I'm really excited about this opportunity.",
-      timestamp: "10:35 AM",
-      isOwn: true,
-    },
-    {
-      id: "3",
-      senderId: "org1",
-      senderName: "TechCorp Solutions",
-      content: "We've reviewed your resume and we're impressed with your projects. Would you be available for an interview next week?",
-      timestamp: "11:00 AM",
-      isOwn: false,
-    },
-    {
-      id: "4",
-      senderId: "user1",
-      senderName: "You",
-      content: "Yes, I'm available! What days work best for you?",
-      timestamp: "11:05 AM",
-      isOwn: true,
-    },
-    {
-      id: "5",
-      senderId: "org1",
-      senderName: "TechCorp Solutions",
-      content: "Thanks for your application! We'd love to schedule an interview.",
-      timestamp: "Just now",
-      isOwn: false,
-    },
-  ];
+  // Fetch conversations
+  useEffect(() => {
+    if (!currentUserId) return;
 
-  const handleSendMessage = () => {
-    if (messageInput.trim()) {
-      // TODO: Send message via backend
-      console.log("Sending message:", messageInput);
+    const fetchConversations = async () => {
+      try {
+        const { data: convData, error: convError } = await supabase
+          .from('conversations')
+          .select('*')
+          .or(`participant1_id.eq.${currentUserId},participant2_id.eq.${currentUserId}`)
+          .order('updated_at', { ascending: false });
+
+        if (convError) throw convError;
+
+        if (convData) {
+          // Fetch participant details
+          const conversationsWithDetails = await Promise.all(
+            convData.map(async (conv) => {
+              const otherUserId = conv.participant1_id === currentUserId 
+                ? conv.participant2_id 
+                : conv.participant1_id;
+
+              // Get user role
+              const { data: roleData } = await supabase
+                .from('user_roles')
+                .select('role')
+                .eq('user_id', otherUserId)
+                .single();
+
+              let name = 'Unknown User';
+              let role = 'User';
+
+              if (roleData) {
+                // Fetch profile based on role
+                if (roleData.role === 'intern') {
+                  const { data: profile } = await supabase
+                    .from('intern_profiles')
+                    .select('full_name')
+                    .eq('user_id', otherUserId)
+                    .single();
+                  name = profile?.full_name || 'Applicant';
+                  role = 'Applicant';
+                } else if (roleData.role === 'organization') {
+                  const { data: profile } = await supabase
+                    .from('organization_profiles')
+                    .select('company_name')
+                    .eq('user_id', otherUserId)
+                    .single();
+                  name = profile?.company_name || 'Organization';
+                  role = 'Organization';
+                }
+              }
+
+              // Get last message
+              const { data: lastMsg } = await supabase
+                .from('messages')
+                .select('content')
+                .eq('conversation_id', conv.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
+
+              return {
+                ...conv,
+                participant: { name, role },
+                lastMessage: lastMsg?.content || 'No messages yet'
+              };
+            })
+          );
+
+          setConversations(conversationsWithDetails);
+        }
+      } catch (error) {
+        console.error('Error fetching conversations:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load conversations",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchConversations();
+  }, [currentUserId, toast]);
+
+  // Fetch messages for selected conversation
+  useEffect(() => {
+    if (!selectedConversation) return;
+
+    const fetchMessages = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('conversation_id', selectedConversation)
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+        setMessages(data || []);
+
+        // Scroll to bottom
+        setTimeout(() => {
+          scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      } catch (error) {
+        console.error('Error fetching messages:', error);
+      }
+    };
+
+    fetchMessages();
+
+    // Subscribe to new messages
+    const channel = supabase
+      .channel(`messages:${selectedConversation}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${selectedConversation}`
+        },
+        (payload) => {
+          setMessages((prev) => [...prev, payload.new as Message]);
+          setTimeout(() => {
+            scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedConversation]);
+
+  const handleSendMessage = async () => {
+    if (!messageInput.trim() || !selectedConversation || !currentUserId) return;
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: selectedConversation,
+          sender_id: currentUserId,
+          content: messageInput.trim()
+        });
+
+      if (error) throw error;
+
+      // Update conversation timestamp
+      await supabase
+        .from('conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', selectedConversation);
+
       setMessageInput("");
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive"
+      });
     }
   };
 
   const filteredConversations = conversations.filter((conv) =>
-    conv.participantName.toLowerCase().includes(searchQuery.toLowerCase())
+    conv.participant.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const selectedConv = conversations.find((c) => c.id === selectedConversation);
+
+  if (loading) {
+    return (
+      <SidebarProvider>
+        <div className="flex h-screen w-full bg-background">
+          {userRole === "applicant" ? <ApplicantSidebar /> : <OrganizationSidebar />}
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-muted-foreground">Loading conversations...</p>
+          </div>
+        </div>
+      </SidebarProvider>
+    );
+  }
 
   const Sidebar = userRole === "applicant" ? ApplicantSidebar : OrganizationSidebar;
 
@@ -159,44 +282,43 @@ const Messages = ({ userRole = "applicant" }: MessagesProps) => {
 
               {/* Conversation List */}
               <ScrollArea className="flex-1">
-                {filteredConversations.map((conversation) => (
-                  <button
-                    key={conversation.id}
-                    onClick={() => setSelectedConversation(conversation.id)}
-                    className={cn(
-                      "w-full p-4 border-b border-border text-left hover:bg-accent transition-colors",
-                      selectedConversation === conversation.id && "bg-accent"
-                    )}
-                  >
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                          {conversation.participantName.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <h3 className="font-semibold text-sm text-foreground truncate">
-                            {conversation.participantName}
-                          </h3>
-                          <span className="text-xs text-muted-foreground">
-                            {conversation.timestamp}
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {conversation.lastMessage}
-                        </p>
-                        {conversation.unread > 0 && (
-                          <div className="mt-1">
-                            <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                              {conversation.unread}
+                {filteredConversations.length === 0 ? (
+                  <div className="p-4 text-center text-muted-foreground">
+                    No conversations yet
+                  </div>
+                ) : (
+                  filteredConversations.map((conversation) => (
+                    <button
+                      key={conversation.id}
+                      onClick={() => setSelectedConversation(conversation.id)}
+                      className={cn(
+                        "w-full p-4 border-b border-border text-left hover:bg-accent transition-colors",
+                        selectedConversation === conversation.id && "bg-accent"
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarFallback className="bg-primary text-primary-foreground">
+                            {conversation.participant.name.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <h3 className="font-semibold text-sm text-foreground truncate">
+                              {conversation.participant.name}
+                            </h3>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(conversation.updated_at), 'MMM d, h:mm a')}
                             </span>
                           </div>
-                        )}
+                          <p className="text-sm text-muted-foreground truncate">
+                            {conversation.lastMessage}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  ))
+                )}
               </ScrollArea>
             </div>
 
@@ -209,15 +331,15 @@ const Messages = ({ userRole = "applicant" }: MessagesProps) => {
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
                         <AvatarFallback className="bg-primary text-primary-foreground">
-                          {selectedConv.participantName.substring(0, 2).toUpperCase()}
+                          {selectedConv.participant.name.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
                       <div>
                         <h2 className="font-semibold text-foreground">
-                          {selectedConv.participantName}
+                          {selectedConv.participant.name}
                         </h2>
                         <p className="text-sm text-muted-foreground">
-                          {selectedConv.participantRole}
+                          {selectedConv.participant.role}
                         </p>
                       </div>
                     </div>
@@ -226,47 +348,57 @@ const Messages = ({ userRole = "applicant" }: MessagesProps) => {
                   {/* Messages */}
                   <ScrollArea className="flex-1 p-6">
                     <div className="space-y-4">
-                      {messages.map((message) => (
-                        <div
-                          key={message.id}
-                          className={cn(
-                            "flex gap-3",
-                            message.isOwn && "flex-row-reverse"
-                          )}
-                        >
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback
-                              className={cn(
-                                message.isOwn
-                                  ? "bg-secondary text-secondary-foreground"
-                                  : "bg-primary text-primary-foreground"
-                              )}
-                            >
-                              {message.senderName.substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div
-                            className={cn(
-                              "flex flex-col gap-1 max-w-[70%]",
-                              message.isOwn && "items-end"
-                            )}
-                          >
-                            <div
-                              className={cn(
-                                "rounded-lg px-4 py-2",
-                                message.isOwn
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-muted text-foreground"
-                              )}
-                            >
-                              <p className="text-sm">{message.content}</p>
-                            </div>
-                            <span className="text-xs text-muted-foreground">
-                              {message.timestamp}
-                            </span>
-                          </div>
+                      {messages.length === 0 ? (
+                        <div className="text-center text-muted-foreground py-8">
+                          No messages yet. Start the conversation!
                         </div>
-                      ))}
+                      ) : (
+                        messages.map((message) => {
+                          const isOwn = message.sender_id === currentUserId;
+                          return (
+                            <div
+                              key={message.id}
+                              className={cn(
+                                "flex gap-3",
+                                isOwn && "flex-row-reverse"
+                              )}
+                            >
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback
+                                  className={cn(
+                                    isOwn
+                                      ? "bg-secondary text-secondary-foreground"
+                                      : "bg-primary text-primary-foreground"
+                                  )}
+                                >
+                                  {isOwn ? 'ME' : selectedConv.participant.name.substring(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div
+                                className={cn(
+                                  "flex flex-col gap-1 max-w-[70%]",
+                                  isOwn && "items-end"
+                                )}
+                              >
+                                <div
+                                  className={cn(
+                                    "rounded-lg px-4 py-2",
+                                    isOwn
+                                      ? "bg-primary text-primary-foreground"
+                                      : "bg-muted text-foreground"
+                                  )}
+                                >
+                                  <p className="text-sm">{message.content}</p>
+                                </div>
+                                <span className="text-xs text-muted-foreground">
+                                  {format(new Date(message.created_at), 'h:mm a')}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                      <div ref={scrollRef} />
                     </div>
                   </ScrollArea>
 
