@@ -117,7 +117,7 @@ export default function InternOnboarding() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4 py-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-accent to-background p-4 py-8">
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <CardTitle className="text-2xl font-heading font-bold">
