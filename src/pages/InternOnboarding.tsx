@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { Loader2, X } from "lucide-react";
 import { z } from "zod";
@@ -39,6 +40,19 @@ export default function InternOnboarding() {
   const [currentSkill, setCurrentSkill] = useState("");
   const [interests, setInterests] = useState<string[]>([]);
   const [currentInterest, setCurrentInterest] = useState("");
+
+  const progress = useMemo(() => {
+    const requiredFields = [
+      formData.fullName,
+      formData.educationLevel,
+      formData.fieldOfStudy,
+      formData.university,
+      formData.experienceLevel,
+      formData.availability,
+    ];
+    const filledFields = requiredFields.filter(field => field.trim() !== "").length;
+    return Math.round((filledFields / requiredFields.length) * 100);
+  }, [formData]);
 
   const addSkill = () => {
     if (currentSkill.trim() && !skills.includes(currentSkill.trim())) {
@@ -126,6 +140,13 @@ export default function InternOnboarding() {
           <CardDescription>
             Tell us about yourself to find the perfect internship
           </CardDescription>
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Profile Completion</span>
+              <span className="font-medium">{progress}%</span>
+            </div>
+            <Progress value={progress} className="h-2" />
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
