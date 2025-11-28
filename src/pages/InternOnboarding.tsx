@@ -25,6 +25,7 @@ const internSchema = z.object({
 
 export default function InternOnboarding() {
   const navigate = useNavigate();
+  const [showWelcome, setShowWelcome] = useState(true);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: "",
@@ -129,6 +130,76 @@ export default function InternOnboarding() {
       setLoading(false);
     }
   };
+
+  if (showWelcome) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-accent to-background p-4">
+        <Card className="w-full max-w-2xl">
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl font-heading font-bold">
+              Welcome to Your Internship Journey! 🎓
+            </CardTitle>
+            <CardDescription className="text-base mt-2">
+              Let's set up your profile to connect you with amazing opportunities
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-1 rounded-full bg-primary/10 p-2">
+                  <span className="text-xl">📝</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Build Your Profile</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Share your education, skills, and experience to help organizations find you
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="mt-1 rounded-full bg-primary/10 p-2">
+                  <span className="text-xl">🎯</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Get Matched</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Our platform will connect you with internships that match your interests
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="mt-1 rounded-full bg-primary/10 p-2">
+                  <span className="text-xl">💼</span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Apply & Track</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Apply to positions and track your application status in real-time
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-muted p-4">
+              <h4 className="font-semibold text-sm mb-2 text-foreground">What you'll need:</h4>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• Educational background and university details</li>
+                <li>• Your skills and areas of interest</li>
+                <li>• Experience level and availability</li>
+                <li>• Portfolio URL (optional)</li>
+              </ul>
+            </div>
+
+            <Button onClick={() => setShowWelcome(false)} className="w-full" size="lg">
+              Get Started
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-accent to-background p-4 py-8">
