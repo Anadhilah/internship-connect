@@ -19,11 +19,14 @@ import {
   AlertCircle,
   Lightbulb,
   Loader2,
-  Trash2
+  Trash2,
+  FileDown
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import { ProfessionalTemplate, ResumeData } from "@/components/resume/ProfessionalTemplate";
 
 const fileSchema = z.object({
   file: z.instanceof(File)
@@ -46,9 +49,18 @@ const ResumeManagement = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [resumeData, setResumeData] = useState<ResumeData>({
+    full_name: "",
+    email: "",
+    phone: "",
+    location: "",
+    summary: "",
+  });
+  const [profileData, setProfileData] = useState<any>(null);
 
   useEffect(() => {
     fetchExistingResume();
+    fetchProfileData();
   }, []);
 
   const fetchExistingResume = async () => {
@@ -73,6 +85,42 @@ const ResumeManagement = () => {
       console.error('Error fetching resume:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchProfileData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile, error } = await supabase
+        .from('intern_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) throw error;
+      
+      if (profile) {
+        setProfileData(profile);
+        // Populate resume data from profile
+        setResumeData({
+          full_name: profile.full_name || "",
+          email: user.email || "",
+          phone: "",
+          location: "",
+          portfolio_url: profile.portfolio_url || "",
+          education_level: profile.education_level || "",
+          university: profile.university || "",
+          field_of_study: profile.field_of_study || "",
+          skills: profile.skills || [],
+          experience_level: profile.experience_level || "",
+          interests: profile.interests || [],
+          summary: "",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error fetching profile:', error);
     }
   };
 
@@ -353,8 +401,9 @@ const ResumeManagement = () => {
                 </CardHeader>
                 <CardContent>
                   <Tabs defaultValue="upload" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
+                    <TabsList className="grid w-full grid-cols-3">
                       <TabsTrigger value="upload">Upload Resume</TabsTrigger>
+                      <TabsTrigger value="build">Build Resume</TabsTrigger>
                       <TabsTrigger value="generate">Auto-Generate</TabsTrigger>
                     </TabsList>
 
@@ -394,6 +443,107 @@ const ResumeManagement = () => {
                           )}
                         </Button>
                       )}
+                    </TabsContent>
+
+                    <TabsContent value="build" className="space-y-4">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 p-4 bg-accent rounded-lg">
+                          <FileText className="h-5 w-5 text-primary" />
+                          <p className="text-sm">
+                            Build a professional resume using the Classic template
+                          </p>
+                        </div>
+
+                        <div className="grid gap-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="build-name">Full Name *</Label>
+                            <Input 
+                              id="build-name" 
+                              value={resumeData.full_name}
+                              onChange={(e) => setResumeData({ ...resumeData, full_name: e.target.value })}
+                              placeholder="John Doe" 
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                              <Label htmlFor="build-email">Email *</Label>
+                              <Input 
+                                id="build-email" 
+                                type="email"
+                                value={resumeData.email}
+                                onChange={(e) => setResumeData({ ...resumeData, email: e.target.value })}
+                                placeholder="john@example.com" 
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor="build-phone">Phone</Label>
+                              <Input 
+                                id="build-phone"
+                                value={resumeData.phone}
+                                onChange={(e) => setResumeData({ ...resumeData, phone: e.target.value })}
+                                placeholder="+1 234 567 8900" 
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid gap-2">
+                            <Label htmlFor="build-location">Location</Label>
+                            <Input 
+                              id="build-location"
+                              value={resumeData.location}
+                              onChange={(e) => setResumeData({ ...resumeData, location: e.target.value })}
+                              placeholder="City, State/Country" 
+                            />
+                          </div>
+
+                          <div className="grid gap-2">
+                            <Label htmlFor="build-summary">Professional Summary</Label>
+                            <Textarea 
+                              id="build-summary"
+                              value={resumeData.summary}
+                              onChange={(e) => setResumeData({ ...resumeData, summary: e.target.value })}
+                              placeholder="Brief description of your skills, experience, and career goals..."
+                              rows={4}
+                            />
+                          </div>
+
+                          <div className="p-4 bg-muted rounded-lg space-y-2">
+                            <p className="text-sm font-semibold">Auto-populated from your profile:</p>
+                            <div className="text-xs text-muted-foreground space-y-1">
+                              {profileData?.education_level && <p>• Education: {profileData.education_level}</p>}
+                              {profileData?.university && <p>• University: {profileData.university}</p>}
+                              {profileData?.field_of_study && <p>• Field: {profileData.field_of_study}</p>}
+                              {profileData?.skills?.length > 0 && <p>• Skills: {profileData.skills.join(", ")}</p>}
+                              {profileData?.experience_level && <p>• Experience: {profileData.experience_level}</p>}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <PDFDownloadLink
+                            document={<ProfessionalTemplate data={resumeData} />}
+                            fileName={`${resumeData.full_name.replace(/\s+/g, '_')}_Resume.pdf`}
+                            className="flex-1"
+                          >
+                            {({ loading }) => (
+                              <Button className="w-full" disabled={loading || !resumeData.full_name || !resumeData.email}>
+                                {loading ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Generating PDF...
+                                  </>
+                                ) : (
+                                  <>
+                                    <FileDown className="h-4 w-4 mr-2" />
+                                    Download Resume PDF
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </PDFDownloadLink>
+                        </div>
+                      </div>
                     </TabsContent>
 
                     <TabsContent value="generate" className="space-y-4">
