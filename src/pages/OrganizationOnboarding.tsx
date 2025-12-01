@@ -29,6 +29,7 @@ const STEPS = [
   { id: 1, name: "Basic Info", description: "Company Details" },
   { id: 2, name: "Location & Industry", description: "Where You Operate" },
   { id: 3, name: "Additional Details", description: "More About You" },
+  { id: 4, name: "Review", description: "Confirm & Submit" },
 ];
 
 export default function OrganizationOnboarding() {
@@ -383,6 +384,78 @@ export default function OrganizationOnboarding() {
                       </FormItem>
                     )}
                   />
+                </div>
+              )}
+
+              {/* Step 4: Review */}
+              {currentStep === 4 && (
+                <div className="space-y-6">
+                  <div className="rounded-lg border border-border bg-muted/30 p-6 space-y-6">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-lg">Basic Information</h3>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(1)}>
+                          Edit
+                        </Button>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Company Name:</span>
+                          <span className="font-medium">{formData.companyName || "Not provided"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Company Size:</span>
+                          <span className="font-medium">{formData.companySize || "Not provided"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-border pt-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-lg">Location & Industry</h3>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(2)}>
+                          Edit
+                        </Button>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Industry:</span>
+                          <span className="font-medium">{formData.industry || "Not provided"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Location:</span>
+                          <span className="font-medium">{formData.location || "Not provided"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-border pt-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-lg">Additional Details</h3>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(3)}>
+                          Edit
+                        </Button>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Website:</span>
+                          <span className="font-medium break-all">{formData.website || "Not provided"}</span>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <span className="text-muted-foreground">Description:</span>
+                          <span className="font-medium text-foreground">
+                            {formData.description || "Not provided"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-primary/10 border border-primary/20 p-4">
+                    <p className="text-sm text-foreground">
+                      Please review all information carefully before submitting. You can edit any section by clicking the "Edit" button.
+                    </p>
+                  </div>
                 </div>
               )}
 
