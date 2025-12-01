@@ -12,6 +12,9 @@ import { toast } from "sonner";
 import { Loader2, Check } from "lucide-react";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 const organizationSchema = z.object({
   companyName: z.string().trim().min(1, { message: "Company name is required" }).max(200),
@@ -33,14 +36,21 @@ export default function OrganizationOnboarding() {
   const [showWelcome, setShowWelcome] = useState(true);
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    companyName: "",
-    companySize: "",
-    industry: "",
-    location: "",
-    description: "",
-    website: "",
+
+  const form = useForm<z.infer<typeof organizationSchema>>({
+    resolver: zodResolver(organizationSchema),
+    mode: "onChange",
+    defaultValues: {
+      companyName: "",
+      companySize: "",
+      industry: "",
+      location: "",
+      description: "",
+      website: "",
+    },
   });
+
+  const formData = form.watch();
 
   const progress = useMemo(() => {
     const requiredFields = [
@@ -53,26 +63,30 @@ export default function OrganizationOnboarding() {
     return Math.round((filledFields / requiredFields.length) * 100);
   }, [formData]);
 
-  const validateCurrentStep = () => {
+  const validateCurrentStep = async () => {
+    let fieldsToValidate: (keyof z.infer<typeof organizationSchema>)[] = [];
+    
     switch (currentStep) {
       case 1:
-        if (!formData.companyName || !formData.companySize) {
-          toast.error("Please fill in all required fields");
-          return false;
-        }
+        fieldsToValidate = ["companyName", "companySize"];
         break;
       case 2:
-        if (!formData.industry || !formData.location) {
-          toast.error("Please fill in all required fields");
-          return false;
-        }
+        fieldsToValidate = ["industry", "location"];
+        break;
+      case 3:
+        fieldsToValidate = ["website", "description"];
         break;
     }
-    return true;
+
+    const result = await form.trigger(fieldsToValidate);
+    if (!result) {
+      toast.error("Please fix the errors before proceeding");
+    }
+    return result;
   };
 
-  const handleNext = () => {
-    if (validateCurrentStep()) {
+  const handleNext = async () => {
+    if (await validateCurrentStep()) {
       setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
     }
   };
@@ -81,19 +95,8 @@ export default function OrganizationOnboarding() {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateCurrentStep()) return;
-
-    try {
-      organizationSchema.parse(formData);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        toast.error(error.errors[0].message);
-        return;
-      }
-    }
+  const handleSubmit = form.handleSubmit(async (data) => {
+    if (!(await validateCurrentStep())) return;
 
     setLoading(true);
 
@@ -110,12 +113,12 @@ export default function OrganizationOnboarding() {
         .from('organization_profiles')
         .insert({
           user_id: user.id,
-          company_name: formData.companyName,
-          company_size: formData.companySize,
-          industry: formData.industry,
-          location: formData.location,
-          description: formData.description,
-          website: formData.website || null,
+          company_name: data.companyName,
+          company_size: data.companySize,
+          industry: data.industry,
+          location: data.location,
+          description: data.description,
+          website: data.website || null,
         });
 
       if (error) {
@@ -131,7 +134,7 @@ export default function OrganizationOnboarding() {
     } finally {
       setLoading(false);
     }
-  };
+  });
 
   if (showWelcome) {
     return (
@@ -270,132 +273,149 @@ export default function OrganizationOnboarding() {
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Step 1: Basic Info */}
-            {currentStep === 1 && (
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="companyName">Company Name *</Label>
-                  <Input
-                    id="companyName"
-                    value={formData.companyName}
-                    onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                    required
-                    disabled={loading}
+          <Form {...form}>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Step 1: Basic Info */}
+              {currentStep === 1 && (
+                <div className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="companyName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company Name *</FormLabel>
+                        <FormControl>
+                          <Input {...field} disabled={loading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="companySize"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company Size *</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={loading}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select size" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="1-10">1-10 employees</SelectItem>
+                            <SelectItem value="11-50">11-50 employees</SelectItem>
+                            <SelectItem value="51-200">51-200 employees</SelectItem>
+                            <SelectItem value="201-500">201-500 employees</SelectItem>
+                            <SelectItem value="501-1000">501-1000 employees</SelectItem>
+                            <SelectItem value="1000+">1000+ employees</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
+              )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="companySize">Company Size *</Label>
-                  <Select
-                    value={formData.companySize}
-                    onValueChange={(value) => setFormData({ ...formData, companySize: value })}
-                    disabled={loading}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1-10">1-10 employees</SelectItem>
-                      <SelectItem value="11-50">11-50 employees</SelectItem>
-                      <SelectItem value="51-200">51-200 employees</SelectItem>
-                      <SelectItem value="201-500">201-500 employees</SelectItem>
-                      <SelectItem value="501-1000">501-1000 employees</SelectItem>
-                      <SelectItem value="1000+">1000+ employees</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
+              {/* Step 2: Location & Industry */}
+              {currentStep === 2 && (
+                <div className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="industry"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Industry *</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="e.g., Technology, Finance" disabled={loading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-            {/* Step 2: Location & Industry */}
-            {currentStep === 2 && (
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="industry">Industry *</Label>
-                  <Input
-                    id="industry"
-                    value={formData.industry}
-                    onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-                    placeholder="e.g., Technology, Finance"
-                    required
-                    disabled={loading}
+                  <FormField
+                    control={form.control}
+                    name="location"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Location *</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="City, State/Country" disabled={loading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
+              )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="location">Location *</Label>
-                  <Input
-                    id="location"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    placeholder="City, State/Country"
-                    required
-                    disabled={loading}
+              {/* Step 3: Additional Details */}
+              {currentStep === 3 && (
+                <div className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="website"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company Website</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="url" placeholder="https://example.com" disabled={loading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company Description</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} placeholder="Tell us about your company..." rows={4} disabled={loading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Step 3: Additional Details */}
-            {currentStep === 3 && (
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="website">Company Website</Label>
-                  <Input
-                    id="website"
-                    type="url"
-                    value={formData.website}
-                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                    placeholder="https://example.com"
-                    disabled={loading}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="description">Company Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Tell us about your company..."
-                    rows={4}
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Navigation Buttons */}
-            <div className="flex justify-between gap-4 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handlePrevious}
-                disabled={currentStep === 1 || loading}
-                className="w-full"
-              >
-                Previous
-              </Button>
-              
-              {currentStep < STEPS.length ? (
+              {/* Navigation Buttons */}
+              <div className="flex justify-between gap-4 pt-4">
                 <Button
                   type="button"
-                  onClick={handleNext}
-                  disabled={loading}
+                  variant="outline"
+                  onClick={handlePrevious}
+                  disabled={currentStep === 1 || loading}
                   className="w-full"
                 >
-                  Next
+                  Previous
                 </Button>
-              ) : (
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Complete Profile
-                </Button>
-              )}
-            </div>
-          </form>
+                
+                {currentStep < STEPS.length ? (
+                  <Button
+                    type="button"
+                    onClick={handleNext}
+                    disabled={loading}
+                    className="w-full"
+                  >
+                    Next
+                  </Button>
+                ) : (
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Complete Profile
+                  </Button>
+                )}
+              </div>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>

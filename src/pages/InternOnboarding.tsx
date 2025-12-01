@@ -12,6 +12,9 @@ import { toast } from "sonner";
 import { Loader2, X, Check } from "lucide-react";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 const internSchema = z.object({
   fullName: z.string().trim().min(1, { message: "Full name is required" }).max(200),
@@ -36,20 +39,27 @@ export default function InternOnboarding() {
   const [showWelcome, setShowWelcome] = useState(true);
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    fullName: "",
-    educationLevel: "",
-    fieldOfStudy: "",
-    university: "",
-    experienceLevel: "",
-    availability: "",
-    resumeUrl: "",
-    portfolioUrl: "",
-  });
   const [skills, setSkills] = useState<string[]>([]);
   const [currentSkill, setCurrentSkill] = useState("");
   const [interests, setInterests] = useState<string[]>([]);
   const [currentInterest, setCurrentInterest] = useState("");
+
+  const form = useForm<z.infer<typeof internSchema>>({
+    resolver: zodResolver(internSchema),
+    mode: "onChange",
+    defaultValues: {
+      fullName: "",
+      educationLevel: "",
+      fieldOfStudy: "",
+      university: "",
+      experienceLevel: "",
+      availability: "",
+      resumeUrl: "",
+      portfolioUrl: "",
+    },
+  });
+
+  const formData = form.watch();
 
   const progress = useMemo(() => {
     const requiredFields = [
@@ -86,26 +96,32 @@ export default function InternOnboarding() {
     setInterests(interests.filter((i) => i !== interest));
   };
 
-  const validateCurrentStep = () => {
+  const validateCurrentStep = async () => {
+    let fieldsToValidate: (keyof z.infer<typeof internSchema>)[] = [];
+    
     switch (currentStep) {
       case 1:
-        if (!formData.fullName || !formData.educationLevel || !formData.fieldOfStudy || !formData.university) {
-          toast.error("Please fill in all required fields");
-          return false;
-        }
+        fieldsToValidate = ["fullName", "educationLevel", "fieldOfStudy", "university"];
         break;
       case 2:
-        if (!formData.experienceLevel || !formData.availability) {
-          toast.error("Please fill in all required fields");
-          return false;
-        }
+        fieldsToValidate = ["experienceLevel", "availability"];
+        break;
+      case 4:
+        fieldsToValidate = ["resumeUrl", "portfolioUrl"];
         break;
     }
-    return true;
+
+    if (fieldsToValidate.length === 0) return true;
+    
+    const result = await form.trigger(fieldsToValidate);
+    if (!result) {
+      toast.error("Please fix the errors before proceeding");
+    }
+    return result;
   };
 
-  const handleNext = () => {
-    if (validateCurrentStep()) {
+  const handleNext = async () => {
+    if (await validateCurrentStep()) {
       setCurrentStep(prev => Math.min(prev + 1, STEPS.length));
     }
   };
@@ -114,19 +130,8 @@ export default function InternOnboarding() {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateCurrentStep()) return;
-
-    try {
-      internSchema.parse(formData);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        toast.error(error.errors[0].message);
-        return;
-      }
-    }
+  const handleSubmit = form.handleSubmit(async (data) => {
+    if (!(await validateCurrentStep())) return;
 
     setLoading(true);
 
@@ -143,16 +148,16 @@ export default function InternOnboarding() {
         .from('intern_profiles')
         .insert({
           user_id: user.id,
-          full_name: formData.fullName,
-          education_level: formData.educationLevel,
-          field_of_study: formData.fieldOfStudy,
-          university: formData.university,
+          full_name: data.fullName,
+          education_level: data.educationLevel,
+          field_of_study: data.fieldOfStudy,
+          university: data.university,
           skills: skills,
-          experience_level: formData.experienceLevel,
+          experience_level: data.experienceLevel,
           interests: interests,
-          availability: formData.availability,
-          resume_url: formData.resumeUrl || null,
-          portfolio_url: formData.portfolioUrl || null,
+          availability: data.availability,
+          resume_url: data.resumeUrl || null,
+          portfolio_url: data.portfolioUrl || null,
         });
 
       if (error) {
@@ -168,7 +173,7 @@ export default function InternOnboarding() {
     } finally {
       setLoading(false);
     }
-  };
+  });
 
   if (showWelcome) {
     return (
@@ -307,120 +312,141 @@ export default function InternOnboarding() {
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Step 1: Basic Info */}
-            {currentStep === 1 && (
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name *</Label>
-                  <Input
-                    id="fullName"
-                    value={formData.fullName}
-                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    required
-                    disabled={loading}
+          <Form {...form}>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Step 1: Basic Info */}
+              {currentStep === 1 && (
+                <div className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="fullName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name *</FormLabel>
+                        <FormControl>
+                          <Input {...field} disabled={loading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="educationLevel">Education Level *</Label>
-                    <Select
-                      value={formData.educationLevel}
-                      onValueChange={(value) => setFormData({ ...formData, educationLevel: value })}
-                      disabled={loading}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select level" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="High School">High School</SelectItem>
-                        <SelectItem value="Associate Degree">Associate Degree</SelectItem>
-                        <SelectItem value="Bachelor's Degree">Bachelor's Degree</SelectItem>
-                        <SelectItem value="Master's Degree">Master's Degree</SelectItem>
-                        <SelectItem value="PhD">PhD</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="educationLevel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Education Level *</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value} disabled={loading}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select level" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="High School">High School</SelectItem>
+                              <SelectItem value="Associate Degree">Associate Degree</SelectItem>
+                              <SelectItem value="Bachelor's Degree">Bachelor's Degree</SelectItem>
+                              <SelectItem value="Master's Degree">Master's Degree</SelectItem>
+                              <SelectItem value="PhD">PhD</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="fieldOfStudy"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Field of Study *</FormLabel>
+                          <FormControl>
+                            <Input {...field} placeholder="e.g., Computer Science" disabled={loading} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="fieldOfStudy">Field of Study *</Label>
-                    <Input
-                      id="fieldOfStudy"
-                      value={formData.fieldOfStudy}
-                      onChange={(e) => setFormData({ ...formData, fieldOfStudy: e.target.value })}
-                      placeholder="e.g., Computer Science"
-                      required
-                      disabled={loading}
+                  <FormField
+                    control={form.control}
+                    name="university"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>University *</FormLabel>
+                        <FormControl>
+                          <Input {...field} disabled={loading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
+              {/* Step 2: Experience */}
+              {currentStep === 2 && (
+                <div className="space-y-6">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="experienceLevel"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Experience Level *</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value} disabled={loading}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select level" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="No Experience">No Experience</SelectItem>
+                              <SelectItem value="Less than 1 year">Less than 1 year</SelectItem>
+                              <SelectItem value="1-2 years">1-2 years</SelectItem>
+                              <SelectItem value="2-3 years">2-3 years</SelectItem>
+                              <SelectItem value="3+ years">3+ years</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="availability"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Availability *</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value} disabled={loading}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select availability" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Immediate">Immediate</SelectItem>
+                              <SelectItem value="Within 1 month">Within 1 month</SelectItem>
+                              <SelectItem value="Within 2 months">Within 2 months</SelectItem>
+                              <SelectItem value="Within 3 months">Within 3 months</SelectItem>
+                              <SelectItem value="Flexible">Flexible</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                   </div>
                 </div>
+              )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="university">University *</Label>
-                  <Input
-                    id="university"
-                    value={formData.university}
-                    onChange={(e) => setFormData({ ...formData, university: e.target.value })}
-                    required
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Experience */}
-            {currentStep === 2 && (
-              <div className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="experienceLevel">Experience Level *</Label>
-                    <Select
-                      value={formData.experienceLevel}
-                      onValueChange={(value) => setFormData({ ...formData, experienceLevel: value })}
-                      disabled={loading}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select level" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="No Experience">No Experience</SelectItem>
-                        <SelectItem value="Less than 1 year">Less than 1 year</SelectItem>
-                        <SelectItem value="1-2 years">1-2 years</SelectItem>
-                        <SelectItem value="2-3 years">2-3 years</SelectItem>
-                        <SelectItem value="3+ years">3+ years</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="availability">Availability *</Label>
-                    <Select
-                      value={formData.availability}
-                      onValueChange={(value) => setFormData({ ...formData, availability: value })}
-                      disabled={loading}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select availability" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Immediate">Immediate</SelectItem>
-                        <SelectItem value="Within 1 month">Within 1 month</SelectItem>
-                        <SelectItem value="Within 2 months">Within 2 months</SelectItem>
-                        <SelectItem value="Within 3 months">Within 3 months</SelectItem>
-                        <SelectItem value="Flexible">Flexible</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Skills & Interests */}
-            {currentStep === 3 && (
+              {/* Step 3: Skills & Interests */}
+              {currentStep === 3 && (
               <div className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="skills">Skills</Label>
@@ -477,69 +503,72 @@ export default function InternOnboarding() {
                     ))}
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Step 4: Additional Info */}
-            {currentStep === 4 && (
-              <div className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="resumeUrl">Resume URL</Label>
-                    <Input
-                      id="resumeUrl"
-                      type="url"
-                      value={formData.resumeUrl}
-                      onChange={(e) => setFormData({ ...formData, resumeUrl: e.target.value })}
-                      placeholder="https://..."
-                      disabled={loading}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="portfolioUrl">Portfolio URL</Label>
-                    <Input
-                      id="portfolioUrl"
-                      type="url"
-                      value={formData.portfolioUrl}
-                      onChange={(e) => setFormData({ ...formData, portfolioUrl: e.target.value })}
-                      placeholder="https://..."
-                      disabled={loading}
-                    />
-                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Navigation Buttons */}
-            <div className="flex justify-between gap-4 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handlePrevious}
-                disabled={currentStep === 1 || loading}
-                className="w-full"
-              >
-                Previous
-              </Button>
-              
-              {currentStep < STEPS.length ? (
+              {/* Step 4: Additional Info */}
+              {currentStep === 4 && (
+                <div className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="resumeUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Resume URL</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="url" placeholder="https://example.com/resume.pdf" disabled={loading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="portfolioUrl"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Portfolio URL</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="url" placeholder="https://yourportfolio.com" disabled={loading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
+              {/* Navigation Buttons */}
+              <div className="flex justify-between gap-4 pt-4">
                 <Button
                   type="button"
-                  onClick={handleNext}
-                  disabled={loading}
+                  variant="outline"
+                  onClick={handlePrevious}
+                  disabled={currentStep === 1 || loading}
                   className="w-full"
                 >
-                  Next
+                  Previous
                 </Button>
-              ) : (
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Complete Profile
-                </Button>
-              )}
-            </div>
-          </form>
+                
+                {currentStep < STEPS.length ? (
+                  <Button
+                    type="button"
+                    onClick={handleNext}
+                    disabled={loading}
+                    className="w-full"
+                  >
+                    Next
+                  </Button>
+                ) : (
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Complete Profile
+                  </Button>
+                )}
+              </div>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>
