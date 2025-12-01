@@ -31,15 +31,11 @@ export default function AdminSetup() {
 
   const checkExistingAdmin = async () => {
     try {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("id")
-        .eq("role", "admin")
-        .limit(1);
+      const { data, error } = await supabase.rpc("admin_exists");
 
       if (error) throw error;
 
-      if (data && data.length > 0) {
+      if (data === true) {
         toast.error("Admin account already exists");
         navigate("/admin/login");
         return;
