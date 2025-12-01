@@ -32,6 +32,7 @@ const STEPS = [
   { id: 2, name: "Experience", description: "Your Background" },
   { id: 3, name: "Skills & Interests", description: "What You Know" },
   { id: 4, name: "Additional Info", description: "Optional Details" },
+  { id: 5, name: "Review", description: "Confirm & Submit" },
 ];
 
 export default function InternOnboarding() {
@@ -536,6 +537,119 @@ export default function InternOnboarding() {
                       </FormItem>
                     )}
                   />
+                </div>
+              )}
+
+              {/* Step 5: Review */}
+              {currentStep === 5 && (
+                <div className="space-y-6">
+                  <div className="rounded-lg border border-border bg-muted/30 p-6 space-y-6">
+                    <div>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-lg">Personal & Education</h3>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(1)}>
+                          Edit
+                        </Button>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Full Name:</span>
+                          <span className="font-medium">{formData.fullName || "Not provided"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Education Level:</span>
+                          <span className="font-medium">{formData.educationLevel || "Not provided"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Field of Study:</span>
+                          <span className="font-medium">{formData.fieldOfStudy || "Not provided"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">University:</span>
+                          <span className="font-medium">{formData.university || "Not provided"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-border pt-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-lg">Experience</h3>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(2)}>
+                          Edit
+                        </Button>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Experience Level:</span>
+                          <span className="font-medium">{formData.experienceLevel || "Not provided"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Availability:</span>
+                          <span className="font-medium">{formData.availability || "Not provided"}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-border pt-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-lg">Skills & Interests</h3>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(3)}>
+                          Edit
+                        </Button>
+                      </div>
+                      <div className="space-y-3 text-sm">
+                        <div>
+                          <span className="text-muted-foreground block mb-2">Skills:</span>
+                          {skills.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {skills.map((skill) => (
+                                <Badge key={skill} variant="secondary">{skill}</Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground italic">None added</span>
+                          )}
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground block mb-2">Interests:</span>
+                          {interests.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {interests.map((interest) => (
+                                <Badge key={interest} variant="secondary">{interest}</Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground italic">None added</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-border pt-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-lg">Additional Information</h3>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentStep(4)}>
+                          Edit
+                        </Button>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Resume URL:</span>
+                          <span className="font-medium break-all">{formData.resumeUrl || "Not provided"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Portfolio URL:</span>
+                          <span className="font-medium break-all">{formData.portfolioUrl || "Not provided"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-primary/10 border border-primary/20 p-4">
+                    <p className="text-sm text-foreground">
+                      Please review all information carefully before submitting. You can edit any section by clicking the "Edit" button.
+                    </p>
+                  </div>
                 </div>
               )}
 
