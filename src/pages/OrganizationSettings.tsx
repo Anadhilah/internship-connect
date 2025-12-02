@@ -41,9 +41,10 @@ export default function OrganizationSettings() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Delete profile data
-      await supabase.from("organization_profiles").delete().eq("user_id", user.id);
-      await supabase.from("user_roles").delete().eq("user_id", user.id);
+      // Use the secure delete function to remove all user data
+      const { error } = await supabase.rpc("delete_user_account");
+
+      if (error) throw error;
 
       toast({
         title: "Account Deleted",
