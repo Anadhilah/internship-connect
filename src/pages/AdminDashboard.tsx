@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,41 +9,108 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+interface OrganizationProfile {
+  id: string;
+  company_name: string;
+  industry: string | null;
+  created_at: string;
+  approval_status: string;
+}
+
+interface Stats {
+  totalOrganizations: number;
+  totalInterns: number;
+  activeInternships: number;
+  pendingApprovals: number;
+}
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
+  const [stats, setStats] = useState<Stats>({
+    totalOrganizations: 0,
+    totalInterns: 0,
+    activeInternships: 0,
+    pendingApprovals: 0,
+  });
+  const [pendingOrganizations, setPendingOrganizations] = useState<OrganizationProfile[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      // Fetch counts
+      const [orgsResult, internsResult, internshipsResult, pendingResult] = await Promise.all([
+        supabase.from("organization_profiles").select("id", { count: "exact", head: true }),
+        supabase.from("intern_profiles").select("id", { count: "exact", head: true }),
+        supabase.from("internships").select("id", { count: "exact", head: true }).eq("status", "active"),
+        supabase.from("organization_profiles").select("*").eq("approval_status", "pending").order("created_at", { ascending: false }).limit(4),
+      ]);
+
+      setStats({
+        totalOrganizations: orgsResult.count || 0,
+        totalInterns: internsResult.count || 0,
+        activeInternships: internshipsResult.count || 0,
+        pendingApprovals: pendingResult.data?.length || 0,
+      });
+
+      setPendingOrganizations(pendingResult.data || []);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      toast.error("Failed to load dashboard data");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     toast.success("Logged out successfully");
-    navigate("/auth");
+    navigate("/admin/login");
   };
 
-  // Mock data
-  const stats = [
-    { label: "Total Organizations", value: "156", icon: Building2, color: "text-primary" },
-    { label: "Total Applicants", value: "1,234", icon: Users, color: "text-secondary" },
-    { label: "Active Internships", value: "342", icon: Briefcase, color: "text-accent-foreground" },
-    { label: "Pending Approvals", value: "8", icon: Clock, color: "text-destructive" },
-  ];
+  const handleApprove = async (orgId: string) => {
+    try {
+      const { error } = await supabase.rpc("update_organization_approval", {
+        _org_id: orgId,
+        _status: "approved",
+      });
 
-  const pendingOrganizations = [
-    { name: "Tech Innovations Inc", email: "contact@techinnovations.com", date: "2024-01-15", industry: "Technology" },
-    { name: "Design Masters Studio", email: "hr@designmasters.com", date: "2024-01-15", industry: "Design" },
-    { name: "Marketing Pros", email: "info@marketingpros.com", date: "2024-01-14", industry: "Marketing" },
-    { name: "Finance Corp", email: "careers@financecorp.com", date: "2024-01-14", industry: "Finance" },
-  ];
+      if (error) throw error;
 
-  const recentActivity = [
-    { type: "approval", message: "Approved Tech Corp Inc", time: "2 hours ago" },
-    { type: "removal", message: "Removed inappropriate listing from XYZ Company", time: "5 hours ago" },
-    { type: "approval", message: "Approved Design Studio Ltd", time: "1 day ago" },
-    { type: "alert", message: "Flagged listing for review", time: "1 day ago" },
-  ];
+      toast.success("Organization approved!");
+      fetchDashboardData();
+    } catch (error: any) {
+      console.error("Error approving organization:", error);
+      toast.error(error.message || "Failed to approve organization");
+    }
+  };
 
-  const platformStats = [
-    { label: "Applications This Month", value: "2,456", change: "+12%" },
-    { label: "New Users This Week", value: "234", change: "+8%" },
-    { label: "Active Chats", value: "567", change: "+15%" },
+  const handleReject = async (orgId: string) => {
+    try {
+      const { error } = await supabase.rpc("update_organization_approval", {
+        _org_id: orgId,
+        _status: "rejected",
+        _reason: "Rejected by admin",
+      });
+
+      if (error) throw error;
+
+      toast.success("Organization rejected");
+      fetchDashboardData();
+    } catch (error: any) {
+      console.error("Error rejecting organization:", error);
+      toast.error(error.message || "Failed to reject organization");
+    }
+  };
+
+  const statsCards = [
+    { label: "Total Organizations", value: stats.totalOrganizations.toString(), icon: Building2, color: "text-primary" },
+    { label: "Total Applicants", value: stats.totalInterns.toString(), icon: Users, color: "text-secondary" },
+    { label: "Active Internships", value: stats.activeInternships.toString(), icon: Briefcase, color: "text-accent-foreground" },
+    { label: "Pending Approvals", value: stats.pendingApprovals.toString(), icon: Clock, color: "text-destructive" },
   ];
 
   return (
@@ -64,162 +132,121 @@ const AdminDashboard = () => {
           </header>
 
           <main className="flex-1 p-6 bg-muted/20">
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              {stats.map((stat) => (
-                <Card key={stat.label} className="border-2 hover:shadow-soft transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
-                        <p className="text-3xl font-heading font-bold">{stat.value}</p>
-                      </div>
-                      <div className={`h-12 w-12 rounded-lg bg-accent flex items-center justify-center ${stat.color}`}>
-                        <stat.icon className="h-6 w-6" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            <div className="grid lg:grid-cols-3 gap-6 mb-6">
-              {/* Platform Stats */}
-              <Card className="border-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Briefcase className="h-5 w-5 text-primary" />
-                    Platform Stats
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {platformStats.map((stat, idx) => (
-                    <div key={idx} className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground">{stat.label}</p>
-                        <p className="text-2xl font-heading font-bold">{stat.value}</p>
-                      </div>
-                      <Badge variant="secondary" className="text-secondary border-secondary">
-                        {stat.change}
-                      </Badge>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              {/* Recent Activity */}
-              <Card className="lg:col-span-2 border-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span className="flex items-center gap-2">
-                      <AlertCircle className="h-5 w-5 text-primary" />
-                      Recent Activity
-                    </span>
-                    <Button variant="ghost" size="sm" onClick={() => toast.info("Full activity log coming soon!")}>View All</Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {recentActivity.map((activity, idx) => (
-                      <div key={idx} className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
-                        <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                          activity.type === 'approval' ? 'bg-secondary/20 text-secondary' :
-                          activity.type === 'removal' ? 'bg-destructive/20 text-destructive' :
-                          'bg-accent text-accent-foreground'
-                        }`}>
-                          {activity.type === 'approval' ? <CheckCircle className="h-4 w-4" /> :
-                           activity.type === 'removal' ? <XCircle className="h-4 w-4" /> :
-                           <AlertCircle className="h-4 w-4" />}
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{activity.message}</p>
-                          <p className="text-xs text-muted-foreground">{activity.time}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Pending Organization Approvals */}
-            <Card className="border-2">
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-primary" />
-                    Pending Organization Approvals
-                  </span>
-                  <Badge variant="destructive">{pendingOrganizations.length} pending</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {pendingOrganizations.map((org, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors">
-                      <div className="flex items-center gap-4 flex-1">
-                        <div className="h-12 w-12 rounded-lg bg-gradient-primary flex items-center justify-center text-white font-bold text-lg">
-                          {org.name.charAt(0)}
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="font-semibold">{org.name}</h4>
-                          <p className="text-sm text-muted-foreground">{org.email}</p>
-                          <div className="flex gap-2 mt-1">
-                            <Badge variant="outline">{org.industry}</Badge>
-                            <span className="text-xs text-muted-foreground">Applied {org.date}</span>
+            {loading ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <>
+                {/* Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                  {statsCards.map((stat) => (
+                    <Card key={stat.label} className="border-2 hover:shadow-soft transition-shadow">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
+                            <p className="text-3xl font-heading font-bold">{stat.value}</p>
+                          </div>
+                          <div className={`h-12 w-12 rounded-lg bg-accent flex items-center justify-center ${stat.color}`}>
+                            <stat.icon className="h-6 w-6" />
                           </div>
                         </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => navigate("/admin/approvals")}
-                        >
-                          View Details
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          className="bg-secondary hover:bg-secondary-hover text-white"
-                          onClick={() => toast.success("Organization approved!")}
-                        >
-                          <CheckCircle className="mr-1 h-4 w-4" />
-                          Approve
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="destructive"
-                          onClick={() => toast.error("Organization rejected")}
-                        >
-                          <XCircle className="mr-1 h-4 w-4" />
-                          Reject
-                        </Button>
-                      </div>
-                    </div>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* Alert Banner */}
-            <Card className="mt-6 border-2 border-destructive/50 bg-destructive/5">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <AlertCircle className="h-8 w-8 text-destructive" />
-                  <div>
-                    <h3 className="text-lg font-heading font-semibold mb-1">Action Required</h3>
-                    <p className="text-sm text-muted-foreground">You have {pendingOrganizations.length} organizations waiting for approval. Review them to keep the platform active.</p>
-                  </div>
-                  <Button 
-                    variant="destructive" 
-                    className="ml-auto"
-                    onClick={() => navigate("/admin/approvals")}
-                  >
-                    Review Now
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                {/* Pending Organization Approvals */}
+                <Card className="border-2">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <Building2 className="h-5 w-5 text-primary" />
+                        Pending Organization Approvals
+                      </span>
+                      <Badge variant="destructive">{pendingOrganizations.length} pending</Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {pendingOrganizations.length === 0 ? (
+                      <div className="text-center py-8">
+                        <CheckCircle className="h-12 w-12 text-secondary mx-auto mb-4" />
+                        <p className="text-muted-foreground">No pending approvals</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {pendingOrganizations.map((org) => (
+                          <div key={org.id} className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors">
+                            <div className="flex items-center gap-4 flex-1">
+                              <div className="h-12 w-12 rounded-lg bg-gradient-primary flex items-center justify-center text-white font-bold text-lg">
+                                {org.company_name.charAt(0)}
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-semibold">{org.company_name}</h4>
+                                <div className="flex gap-2 mt-1">
+                                  {org.industry && <Badge variant="outline">{org.industry}</Badge>}
+                                  <span className="text-xs text-muted-foreground">
+                                    Applied {new Date(org.created_at).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => navigate("/admin/approvals")}
+                              >
+                                View Details
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                className="bg-secondary hover:bg-secondary/90"
+                                onClick={() => handleApprove(org.id)}
+                              >
+                                <CheckCircle className="mr-1 h-4 w-4" />
+                                Approve
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                variant="destructive"
+                                onClick={() => handleReject(org.id)}
+                              >
+                                <XCircle className="mr-1 h-4 w-4" />
+                                Reject
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Alert Banner */}
+                {pendingOrganizations.length > 0 && (
+                  <Card className="mt-6 border-2 border-destructive/50 bg-destructive/5">
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-4">
+                        <AlertCircle className="h-8 w-8 text-destructive" />
+                        <div>
+                          <h3 className="text-lg font-heading font-semibold mb-1">Action Required</h3>
+                          <p className="text-sm text-muted-foreground">You have {pendingOrganizations.length} organizations waiting for approval. Review them to keep the platform active.</p>
+                        </div>
+                        <Button 
+                          variant="destructive" 
+                          className="ml-auto"
+                          onClick={() => navigate("/admin/approvals")}
+                        >
+                          Review Now
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )}
           </main>
         </div>
       </div>

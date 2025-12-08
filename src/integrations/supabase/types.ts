@@ -230,6 +230,9 @@ export type Database = {
       }
       organization_profiles: {
         Row: {
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
           company_name: string
           company_size: string | null
           created_at: string
@@ -237,11 +240,15 @@ export type Database = {
           id: string
           industry: string | null
           location: string | null
+          rejection_reason: string | null
           updated_at: string
           user_id: string
           website: string | null
         }
         Insert: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           company_name: string
           company_size?: string | null
           created_at?: string
@@ -249,11 +256,15 @@ export type Database = {
           id?: string
           industry?: string | null
           location?: string | null
+          rejection_reason?: string | null
           updated_at?: string
           user_id: string
           website?: string | null
         }
         Update: {
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           company_name?: string
           company_size?: string | null
           created_at?: string
@@ -261,6 +272,7 @@ export type Database = {
           id?: string
           industry?: string | null
           location?: string | null
+          rejection_reason?: string | null
           updated_at?: string
           user_id?: string
           website?: string | null
@@ -301,6 +313,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      update_organization_approval: {
+        Args: { _org_id: string; _reason?: string; _status: string }
+        Returns: undefined
       }
     }
     Enums: {
